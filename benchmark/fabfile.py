@@ -9,26 +9,39 @@ from benchmark.remote import Bench, BenchError
 
 
 @task
-def local(ctx):
+def local(ctx, nodes=4):
     ''' Run benchmarks on localhost '''
     bench_params = {
-        'faults': 0,
-        'nodes': 4,
+        'faults': 1,
+        'nodes': nodes,
         'rate': 1_000,
         'tx_size': 512,
         'duration': 20,
     }
+    # node_params = {
+    #     'consensus': {
+    #         'timeout_delay': 1_000,
+    #         'sync_retry_delay': 10_000,
+    #     },
+    #     'mempool': {
+    #         'gc_depth': 50,
+    #         'sync_retry_delay': 5_000,
+    #         'sync_retry_nodes': 3,
+    #         'batch_size': 15_000,
+    #         'max_batch_delay': 10
+    #     }
+    # }
     node_params = {
         'consensus': {
-            'timeout_delay': 1_000,
-            'sync_retry_delay': 10_000,
+            'timeout_delay': 5_000,
+            'sync_retry_delay': 5_000,
         },
         'mempool': {
             'gc_depth': 50,
             'sync_retry_delay': 5_000,
             'sync_retry_nodes': 3,
-            'batch_size': 15_000,
-            'max_batch_delay': 10
+            'batch_size': 500_000,
+            'max_batch_delay': 100
         }
     }
     try:
@@ -39,7 +52,7 @@ def local(ctx):
 
 
 @task
-def create(ctx, nodes=2):
+def create(ctx, nodes=10):
     ''' Create a testbed'''
     try:
         InstanceManager.make().create_instances(nodes)
@@ -96,12 +109,12 @@ def install(ctx):
 def remote(ctx):
     ''' Run benchmarks on AWS '''
     bench_params = {
-        'faults': 0,
-        'nodes': [10, 20],
-        'rate': [10_000, 30_000],
+        'faults': 3,
+        'nodes': 10,
+        'rate': 1000,
         'tx_size': 512,
         'duration': 300,
-        'runs': 5,
+        'runs': 2,
     }
     node_params = {
         'consensus': {
