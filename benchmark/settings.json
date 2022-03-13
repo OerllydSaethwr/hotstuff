@@ -1,8 +1,8 @@
 {
     "testbed": "hotstuff",
     "key": {
-        "name": "david-laptop",
-        "path": "/home/dmv18/.ssh/david-laptop.pem"
+        "name": "david-benchmark",
+        "path": "/home/ubuntu/.ssh/david-benchmark.pem"
     },
     "ports": {
         "consensus": 8000,
