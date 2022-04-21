@@ -54,6 +54,15 @@ class LocalBench:
             cmd = CommandMaker.compile().split()
             subprocess.run(cmd, check=True, cwd=PathMaker.node_crate_path())
 
+            # Clean, download and compile carrier
+            cmd = CommandMaker.clean_carrier().split()
+            subprocess.run(cmd, check=True)
+            cmd = CommandMaker.download_carrier().split()
+            subprocess.run(cmd, check=True, cwd='..')
+            cmd = CommandMaker.compile_carrier().split()
+            subprocess.run(cmd, check=True, cwd=PathMaker.carrier_path())
+
+            # TODO add alias for carrier also (stage 2)
             # Create alias for the client and nodes binary.
             cmd = CommandMaker.alias_binaries(PathMaker.binary_path())
             subprocess.run([cmd], shell=True)
@@ -75,8 +84,17 @@ class LocalBench:
             # Do not boot faulty nodes.
             nodes = nodes - self.faults
 
-            # Run the clients (they will wait for the nodes to be ready).
+            # TODO carrier booting code comes here
             addresses = committee.front
+            carrier_logs = [PathMaker.carrier_log_file(i) for i in range(nodes)]
+            for i, (addr, log_file) in enumerate(zip(addresses, carrier_logs)):
+                cmd = CommandMaker.run_carrier("127.0.0.1", 9000 + i + 3*nodes, "", "", "")
+                self._background_run(cmd, log_file)
+            # TODO end
+
+            # TODO pass the correct address to the clients (stage 1)
+            # Run the clients (they will wait for the nodes to be ready).
+            addresses = committee.carrier
             rate_share = ceil(rate / nodes)
             timeout = self.node_parameters.timeout_delay
             client_logs = [PathMaker.client_log_file(i) for i in range(nodes)]
@@ -101,6 +119,8 @@ class LocalBench:
                     debug=debug
                 )
                 self._background_run(cmd, log_file)
+
+            #TODO run CARRIER proxies
 
             # Wait for the nodes to synchronize
             Print.info('Waiting for the nodes to synchronize...')

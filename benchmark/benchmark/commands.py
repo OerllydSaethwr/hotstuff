@@ -20,6 +20,24 @@ class CommandMaker:
         return 'cargo build --quiet --release --features benchmark'
 
     @staticmethod
+    def download_carrier():
+        return 'git clone https://github.com/OerllydSaethwr/carrier.git'
+
+    @staticmethod
+    def compile_carrier():
+        # # cmd = 'cd carrier || (git -C clone https://github.com/OerllydSaethwr/carrier.git);'
+        # # cmd += 'git pull;'
+        # # cmd += 'go build cmd/carrier/carrier.go'
+        #
+        # cmd += f'cd {PathMaker.carrier_path()} ; git -C clone https://github.com/OerllydSaethwr/carrier.git;'
+        return f'{PathMaker.go_path()} build cmd/carrier/carrier.go'
+
+    @staticmethod
+    def clean_carrier():
+        return f'rm -r {PathMaker.carrier_path()}'
+
+
+    @staticmethod
     def generate_key(filename):
         assert isinstance(filename, str)
         return f'./node keys --filename {filename}'
@@ -44,6 +62,11 @@ class CommandMaker:
         nodes = f'--nodes {" ".join(nodes)}' if nodes else ''
         return (f'./client {address} --size {size} '
                 f'--rate {rate} --timeout {timeout} {nodes}')
+
+    @staticmethod
+    def run_carrier(address, port, rate, timeout, nodes=[]):
+        assert isinstance(address, str)
+        return f'{PathMaker.carrier_path()}/carrier {address} {port}'
 
     @staticmethod
     def kill():

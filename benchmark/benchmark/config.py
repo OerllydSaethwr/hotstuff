@@ -19,8 +19,8 @@ class Key:
 
 
 class Committee:
-    def __init__(self, names, consensus_addr, transactions_addr, mempool_addr):
-        inputs = [names, consensus_addr, transactions_addr, mempool_addr]
+    def __init__(self, names, consensus_addr, transactions_addr, mempool_addr, carrier_addr):
+        inputs = [names, consensus_addr, transactions_addr, mempool_addr, carrier_addr]
         assert all(isinstance(x, list) for x in inputs)
         assert all(isinstance(x, str) for y in inputs for x in y)
         assert len({len(x) for x in inputs}) == 1
@@ -29,6 +29,7 @@ class Committee:
         self.consensus = consensus_addr
         self.front = transactions_addr
         self.mempool = mempool_addr
+        self.carrier = carrier_addr
 
         self.json = {
             'consensus': self._build_consensus(),
@@ -87,7 +88,8 @@ class LocalCommittee(Committee):
         consensus = [f'127.0.0.1:{port + i}' for i in range(size)]
         front = [f'127.0.0.1:{port + i + size}' for i in range(size)]
         mempool = [f'127.0.0.1:{port + i + 2*size}' for i in range(size)]
-        super().__init__(names, consensus, front, mempool)
+        carrier = [f'127.0.0.1:{port + i + 3*size}' for i in range(size)]
+        super().__init__(names, consensus, front, mempool, carrier)
 
 
 class NodeParameters:
