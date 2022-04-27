@@ -30,11 +30,11 @@ class CommandMaker:
         # # cmd += 'go build cmd/carrier/carrier.go'
         #
         # cmd += f'cd {PathMaker.carrier_path()} ; git -C clone https://github.com/OerllydSaethwr/carrier.git;'
-        return f'{PathMaker.go_path()} build cmd/carrier/carrier.go'
+        return f'{PathMaker.go_path()} build cmd/cobra/carrier.go'
 
     @staticmethod
     def clean_carrier():
-        return f'rm -r {PathMaker.carrier_path()}'
+        return f'rm -rf {PathMaker.carrier_path()}'
 
 
     @staticmethod
@@ -64,9 +64,12 @@ class CommandMaker:
                 f'--rate {rate} --timeout {timeout} {nodes}')
 
     @staticmethod
-    def run_carrier(address, port, rate, timeout, nodes=[]):
-        assert isinstance(address, str)
-        return f'{PathMaker.carrier_path()}/carrier {address} {port}'
+    def run_carrier(client2carrier, carrier2carrier, front):
+        assert isinstance(client2carrier, str)
+        assert isinstance(carrier2carrier, str)
+        assert isinstance(front, str)
+
+        return f'{PathMaker.carrier_path()}/carrier {client2carrier} {carrier2carrier} {front}'
 
     @staticmethod
     def kill():

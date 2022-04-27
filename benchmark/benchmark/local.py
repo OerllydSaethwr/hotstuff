@@ -85,16 +85,19 @@ class LocalBench:
             nodes = nodes - self.faults
 
             # TODO carrier booting code comes here
-            addresses = committee.front
             carrier_logs = [PathMaker.carrier_log_file(i) for i in range(nodes)]
-            for i, (addr, log_file) in enumerate(zip(addresses, carrier_logs)):
-                cmd = CommandMaker.run_carrier("127.0.0.1", 9000 + i + 3*nodes, "", "", "")
+            for i in range(nodes):
+                log_file = PathMaker.carrier_log_file(i)
+                client2carrier = committee.client2carrier[i]
+                carrier2carrier = committee.carrier2carrier[i]
+                front = committee.front[i]
+                cmd = CommandMaker.run_carrier(client2carrier, carrier2carrier, front)
                 self._background_run(cmd, log_file)
             # TODO end
 
             # TODO pass the correct address to the clients (stage 1)
             # Run the clients (they will wait for the nodes to be ready).
-            addresses = committee.carrier
+            addresses = committee.client2carrier
             rate_share = ceil(rate / nodes)
             timeout = self.node_parameters.timeout_delay
             client_logs = [PathMaker.client_log_file(i) for i in range(nodes)]
