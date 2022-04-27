@@ -57,7 +57,8 @@ class LocalBench:
             # Clean, download and compile carrier
             cmd = CommandMaker.clean_carrier().split()
             subprocess.run(cmd, check=True)
-            cmd = CommandMaker.download_carrier().split()
+            # cmd = CommandMaker.download_carrier().split()
+            cmd = f"cp -r /home/dmv18/epfl/project/carrier /home/dmv18/epfl/project/asonnino/hotstuff/".split()
             subprocess.run(cmd, check=True, cwd='..')
             cmd = CommandMaker.compile_carrier().split()
             subprocess.run(cmd, check=True, cwd=PathMaker.carrier_path())

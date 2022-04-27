@@ -25,11 +25,6 @@ class CommandMaker:
 
     @staticmethod
     def compile_carrier():
-        # # cmd = 'cd carrier || (git -C clone https://github.com/OerllydSaethwr/carrier.git);'
-        # # cmd += 'git pull;'
-        # # cmd += 'go build cmd/carrier/carrier.go'
-        #
-        # cmd += f'cd {PathMaker.carrier_path()} ; git -C clone https://github.com/OerllydSaethwr/carrier.git;'
         return f'{PathMaker.go_path()} build cmd/cobra/carrier.go'
 
     @staticmethod
