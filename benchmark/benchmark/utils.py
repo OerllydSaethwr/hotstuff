@@ -27,6 +27,10 @@ class PathMaker:
         return '.committee.json'
 
     @staticmethod
+    def carriers_file():
+        return '.carriers.json'
+
+    @staticmethod
     def parameters_file():
         return '.parameters.json'
 
@@ -34,6 +38,11 @@ class PathMaker:
     def key_file(i):
         assert isinstance(i, int) and i >= 0
         return f'.node-{i}.json'
+
+    @staticmethod
+    def carrier_key_file(i):
+        assert isinstance(i, int) and i >= 0
+        return f'.carrier-{i}.json'
 
     @staticmethod
     def db_path(i):

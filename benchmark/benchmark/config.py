@@ -18,8 +18,29 @@ class Key:
         return cls(data['name'], data['secret'])
 
 
+class CarrierKey:
+    def __init__(self, name, sk, pk):
+        self.name = name
+        self.sk = sk
+        self.pk = pk
+
+    @classmethod
+    def from_file(cls, filename):
+        assert isinstance(filename, str)
+        with open(filename, 'r') as f:
+            data = load(f)
+        return cls(data['name'], data['sk'], data['pk'])
+
+
+def print_carriers(filename, carriers):
+    assert isinstance(filename, str)
+    with open(filename, 'w') as f:
+        dump(carriers, f, indent=4, sort_keys=True)
+
+
 class Committee:
-    def __init__(self, names, consensus_addr, transactions_addr, mempool_addr, client2carrier_addr, carrier2carrier_addr):
+    def __init__(self, names, consensus_addr, transactions_addr, mempool_addr, client2carrier_addr,
+                 carrier2carrier_addr):
         inputs = [names, consensus_addr, transactions_addr, mempool_addr, client2carrier_addr]
         assert all(isinstance(x, list) for x in inputs)
         assert all(isinstance(x, str) for y in inputs for x in y)
@@ -37,6 +58,10 @@ class Committee:
             'mempool': self._build_mempool()
         }
 
+        self.carriers = {
+            'carriers': self.carrier2carrier
+        }
+
     def _build_consensus(self):
         node = {}
         for a, n in zip(self.consensus, self.names):
@@ -47,9 +72,9 @@ class Committee:
         node = {}
         for n, f, m in zip(self.names, self.front, self.mempool):
             node[n] = {
-                'name': n, 
+                'name': n,
                 'stake': 1,
-                'transactions_address': f, 
+                'transactions_address': f,
                 'mempool_address': m
             }
         return {'authorities': node, 'epoch': 1}
@@ -88,9 +113,9 @@ class LocalCommittee(Committee):
         size = len(names)
         consensus = [f'127.0.0.1:{port + i}' for i in range(size)]
         front = [f'127.0.0.1:{port + i + size}' for i in range(size)]
-        mempool = [f'127.0.0.1:{port + i + 2*size}' for i in range(size)]
-        client2carrier = [f'127.0.0.1:{port + i + 3*size}' for i in range(size)]
-        carrier2carrier = [f'127.0.0.1:{port + i + 4*size}' for i in range(size)]
+        mempool = [f'127.0.0.1:{port + i + 2 * size}' for i in range(size)]
+        client2carrier = [f'127.0.0.1:{port + i + 3 * size}' for i in range(size)]
+        carrier2carrier = [f'127.0.0.1:{port + i + 4 * size}' for i in range(size)]
         super().__init__(names, consensus, front, mempool, client2carrier, carrier2carrier)
 
 

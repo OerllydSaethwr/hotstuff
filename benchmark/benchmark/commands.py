@@ -38,6 +38,11 @@ class CommandMaker:
         return f'./node keys --filename {filename}'
 
     @staticmethod
+    def generate_carrier_key(filename):
+        assert isinstance(filename, str)
+        return f'./{PathMaker.carrier_path()}/carrier keys {filename}'
+
+    @staticmethod
     def run_node(keys, committee, store, parameters, debug=False):
         assert isinstance(keys, str)
         assert isinstance(committee, str)
@@ -59,12 +64,12 @@ class CommandMaker:
                 f'--rate {rate} --timeout {timeout} {nodes}')
 
     @staticmethod
-    def run_carrier(client2carrier, carrier2carrier, front):
+    def run_carrier(client2carrier, carrier2carrier, front, keypair):
         assert isinstance(client2carrier, str)
         assert isinstance(carrier2carrier, str)
         assert isinstance(front, str)
 
-        return f'{PathMaker.carrier_path()}/carrier {client2carrier} {carrier2carrier} {front}'
+        return f'{PathMaker.carrier_path()}/carrier {client2carrier} {carrier2carrier} {front} {join(PathMaker.carrier_path(), PathMaker.carriers_file())} {keypair}'
 
     @staticmethod
     def kill():
