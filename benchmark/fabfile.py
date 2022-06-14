@@ -29,7 +29,7 @@ def local(ctx):
             'sync_retry_nodes': 3,
             'batch_size': 15_000,
             'max_batch_delay': 10
-        }
+        },
     }
     try:
         ret = LocalBench(bench_params, node_params).run(debug=False).result()

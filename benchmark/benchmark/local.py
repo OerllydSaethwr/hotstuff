@@ -1,11 +1,10 @@
 import subprocess
 from math import ceil
-from os.path import basename, splitext, join
+from os.path import basename, splitext
 from time import sleep
 
 from benchmark.commands import CommandMaker
-from benchmark.config import Key, LocalCommittee, NodeParameters, BenchParameters, ConfigError, CarrierKey, \
-    print_carriers
+from benchmark.config import Key, LocalCommittee, NodeParameters, BenchParameters, ConfigError
 from benchmark.logs import LogParser, ParseError
 from benchmark.utils import Print, BenchError, PathMaker
 
@@ -55,16 +54,6 @@ class LocalBench:
             cmd = CommandMaker.compile().split()
             subprocess.run(cmd, check=True, cwd=PathMaker.node_crate_path())
 
-            # Clean, download and compile carrier
-            cmd = CommandMaker.clean_carrier().split()
-            subprocess.run(cmd, check=True)
-            # cmd = CommandMaker.download_carrier().split()
-            cmd = f"cp -r /home/dmv18/epfl/project/carrier /home/dmv18/epfl/project/asonnino/hotstuff/".split() # TODO
-            subprocess.run(cmd, check=True, cwd='..')
-            cmd = CommandMaker.compile_carrier().split()
-            subprocess.run(cmd, check=True, cwd=PathMaker.carrier_path())
-
-            # TODO add alias for carrier also (stage 2)
             # Create alias for the client and nodes binary.
             cmd = CommandMaker.alias_binaries(PathMaker.binary_path())
             subprocess.run([cmd], shell=True)
@@ -83,36 +72,11 @@ class LocalBench:
 
             self.node_parameters.print(PathMaker.parameters_file())
 
-            # TODO begin
-            # Generate carrier key files
-            carriers = []
-            carrier_key_files = [PathMaker.carrier_key_file(i) for i in range(nodes)]
-            for i in range(nodes):
-                filename = carrier_key_files[i]
-                address = committee.carrier2carrier[i]
-                cmd = CommandMaker.generate_carrier_key(filename).split()
-                subprocess.run(cmd, check=True)
-                keypair = CarrierKey.from_file(filename)
-                c = {"id": str(i), "address": str(address), "pk": keypair.pk}
-                carriers.append(c)
-
-            print_carriers("../carrier/.carriers.json", carriers)
-
-            # TODO end
             # Do not boot faulty nodes.
             nodes = nodes - self.faults
 
-            for i in range(nodes):
-                log_file = PathMaker.carrier_log_file(i)
-                client2carrier = committee.client2carrier[i]
-                carrier2carrier = committee.carrier2carrier[i]
-                front = committee.front[i]
-                keypair = carrier_key_files[i]
-                cmd = CommandMaker.run_carrier(client2carrier, carrier2carrier, front, keypair)
-                self._background_run(cmd, log_file)
-
             # Run the clients (they will wait for the nodes to be ready).
-            addresses = committee.client2carrier
+            addresses = committee.front
             rate_share = ceil(rate / nodes)
             timeout = self.node_parameters.timeout_delay
             client_logs = [PathMaker.client_log_file(i) for i in range(nodes)]
@@ -128,12 +92,14 @@ class LocalBench:
             # Run the nodes.
             dbs = [PathMaker.db_path(i) for i in range(nodes)]
             node_logs = [PathMaker.node_log_file(i) for i in range(nodes)]
-            for key_file, db, log_file in zip(key_files, dbs, node_logs):
+            decisions = ["127.0.0.1:6003", "127.0.0.1:6004", "127.0.0.1:6005", "127.0.0.1:6006"]
+            for key_file, db, log_file, decision in zip(key_files, dbs, node_logs, decisions):
                 cmd = CommandMaker.run_node(
                     key_file,
                     PathMaker.committee_file(),
                     db,
                     PathMaker.parameters_file(),
+                    decision,
                     debug=debug
                 )
                 self._background_run(cmd, log_file)

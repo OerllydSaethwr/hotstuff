@@ -6,7 +6,7 @@ use mempool::batch_maker::Batch;
 use consensus::{Block, Consensus};
 use crypto::{SignatureService, Digest};
 use log::{info, debug, warn};
-use mempool::{ConsensusMempoolMessage, Mempool};
+use mempool::{MempoolMessage, Mempool};
 use store::Store;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 
@@ -41,6 +41,7 @@ impl Node {
         key_file: &str,
         store_path: &str,
         parameters: Option<&str>,
+        decision: &str,
     ) -> Result<Self, ConfigError> {
         let (tx_commit, rx_commit) = channel(CHANNEL_CAPACITY);
         let (tx_consensus_to_mempool, rx_consensus_to_mempool) = channel(CHANNEL_CAPACITY);
@@ -67,8 +68,8 @@ impl Node {
 
 
         // Connect to the decision.
-        let stream = TcpStream::connect(parameters.decision)
-            .await.expect("aaaa");
+        let stream = TcpStream::connect(decision)
+            .await.expect("Unable to connect");
 
 
         let mut transport = Framed::new(stream, LengthDelimitedCodec::new());
@@ -120,20 +121,28 @@ impl Node {
                         .expect("Batch was not in storage");
 
                     info!("Deserializing stored batch...");
-                    let batch: Batch = bincode::deserialize(&serialized)
+                    let mempool_message = bincode::deserialize(&serialized)
                         .expect("Failed to deserialize batch");
 
-                    let batch_size = batch.len();
+                    match mempool_message {
+                        MempoolMessage::Batch(batch) => {
 
-                    for tx_vec in batch {
-                        // TODO Send to carrier
-                        if let Err(e) = self.transport.send(Bytes::from(tx_vec)).await {
-                            warn!("Failed to send reply to decision: {}", e);
+                            let batch_size = batch.len();
+
+                            for tx_vec in batch {
+                                // TODO Send to carrier
+                                if let Err(e) = self.transport.send(Bytes::from(tx_vec)).await {
+                                    warn!("Failed to send reply to decision: {}", e);
+                                }
+                            }
+
+                            // NOTE: This is used to compute performance.
+                            nb_tx += batch_size;
+                        },
+                        MempoolMessage::BatchRequest(_, _) => {
+                            warn!("A batch request was stored!");
                         }
                     }
-
-                    // NOTE: This is used to compute performance.
-                    nb_tx += batch_size;
 
                     #[cfg(feature = "benchmark")]
                     {

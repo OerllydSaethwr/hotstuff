@@ -72,7 +72,6 @@ class InstanceManager:
         client.authorize_security_group_ingress(
             GroupName=self.settings.testbed,
             IpPermissions=[
-                #TODO 1. add new ports for carrier
                 {
                     'IpProtocol': 'tcp',
                     'FromPort': 22,

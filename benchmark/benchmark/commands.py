@@ -20,37 +20,19 @@ class CommandMaker:
         return 'cargo build --quiet --release --features benchmark'
 
     @staticmethod
-    def download_carrier():
-        return 'git clone https://github.com/OerllydSaethwr/carrier.git'
-
-    @staticmethod
-    def compile_carrier():
-        return f'{PathMaker.go_path()} build cmd/cobra/carrier.go'
-
-    @staticmethod
-    def clean_carrier():
-        return f'rm -rf {PathMaker.carrier_path()}'
-
-
-    @staticmethod
     def generate_key(filename):
         assert isinstance(filename, str)
         return f'./node keys --filename {filename}'
 
     @staticmethod
-    def generate_carrier_key(filename):
-        assert isinstance(filename, str)
-        return f'./{PathMaker.carrier_path()}/carrier keys {filename}'
-
-    @staticmethod
-    def run_node(keys, committee, store, parameters, debug=False):
+    def run_node(keys, committee, store, parameters, decision, debug=False):
         assert isinstance(keys, str)
         assert isinstance(committee, str)
         assert isinstance(parameters, str)
         assert isinstance(debug, bool)
         v = '-vvv' if debug else '-vv'
         return (f'./node {v} run --keys {keys} --committee {committee} '
-                f'--store {store} --parameters {parameters}')
+                f'--store {store} --parameters {parameters} --decision {decision}')
 
     @staticmethod
     def run_client(address, size, rate, timeout, nodes=[]):
@@ -62,14 +44,6 @@ class CommandMaker:
         nodes = f'--nodes {" ".join(nodes)}' if nodes else ''
         return (f'./client {address} --size {size} '
                 f'--rate {rate} --timeout {timeout} {nodes}')
-
-    @staticmethod
-    def run_carrier(client2carrier, carrier2carrier, front, keypair):
-        assert isinstance(client2carrier, str)
-        assert isinstance(carrier2carrier, str)
-        assert isinstance(front, str)
-
-        return f'{PathMaker.carrier_path()}/carrier {client2carrier} {carrier2carrier} {front} {join(PathMaker.carrier_path(), PathMaker.carriers_file())} {keypair}'
 
     @staticmethod
     def kill():

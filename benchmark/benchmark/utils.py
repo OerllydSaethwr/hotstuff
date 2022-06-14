@@ -19,16 +19,8 @@ class PathMaker:
         return join('..', 'node')
 
     @staticmethod
-    def carrier_path():
-        return join('..', 'carrier')
-
-    @staticmethod
     def committee_file():
         return '.committee.json'
-
-    @staticmethod
-    def carriers_file():
-        return '.carriers.json'
 
     @staticmethod
     def parameters_file():
@@ -38,11 +30,6 @@ class PathMaker:
     def key_file(i):
         assert isinstance(i, int) and i >= 0
         return f'.node-{i}.json'
-
-    @staticmethod
-    def carrier_key_file(i):
-        assert isinstance(i, int) and i >= 0
-        return f'.carrier-{i}.json'
 
     @staticmethod
     def db_path(i):
@@ -62,11 +49,6 @@ class PathMaker:
     def client_log_file(i):
         assert isinstance(i, int) and i >= 0
         return join(PathMaker.logs_path(), f'client-{i}.log')
-
-    @staticmethod
-    def carrier_log_file(i):
-        assert isinstance(i, int) and i >= 0
-        return join(PathMaker.logs_path(), f'carrier-{i}.log')
 
     @staticmethod
     def results_path():
@@ -93,11 +75,6 @@ class PathMaker:
     @staticmethod
     def plot_file(name, ext):
         return join(PathMaker.plots_path(), f'{name}.{ext}')
-
-    # TODO: parametrize
-    @staticmethod
-    def go_path():
-        return '/usr/local/go/bin/go'
 
 
 class Color:
