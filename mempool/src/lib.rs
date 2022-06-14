@@ -1,4 +1,4 @@
-mod batch_maker;
+pub mod batch_maker;
 mod config;
 mod helper;
 mod mempool;

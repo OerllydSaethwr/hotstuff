@@ -1,17 +1,30 @@
+#![allow(unused)]
 use crate::config::Export as _;
 use crate::config::{Committee, ConfigError, Parameters, Secret};
+use mempool::batch_maker::Batch;
+
 use consensus::{Block, Consensus};
-use crypto::SignatureService;
-use log::info;
-use mempool::Mempool;
+use crypto::{SignatureService, Digest};
+use log::{info, debug, warn};
+use mempool::{ConsensusMempoolMessage, Mempool};
 use store::Store;
-use tokio::sync::mpsc::{channel, Receiver};
+use tokio::sync::mpsc::{channel, Receiver, Sender};
+
+use bytes::Bytes;
+use std::error::Error;
+use std::collections::HashMap;
+use tokio::time::{sleep, Duration};
+use tokio::sync::oneshot;
+use futures::sink::SinkExt as _;
+#[cfg(feature = "benchmark")]
+use std::convert::TryInto as _;
 
 /// The default channel capacity for this module.
 pub const CHANNEL_CAPACITY: usize = 1_000;
 
 pub struct Node {
     pub commit: Receiver<Block>,
+    pub store: Store,
 }
 
 impl Node {
@@ -59,14 +72,14 @@ impl Node {
             committee.consensus,
             parameters.consensus,
             signature_service,
-            store,
+            store.clone(),
             rx_mempool_to_consensus,
             tx_consensus_to_mempool,
             tx_commit,
         );
 
         info!("Node {} successfully booted", name);
-        Ok(Self { commit: rx_commit })
+        Ok(Self { commit: rx_commit, store: store})
     }
 
     pub fn print_key_file(filename: &str) -> Result<(), ConfigError> {
@@ -74,8 +87,44 @@ impl Node {
     }
 
     pub async fn analyze_block(&mut self) {
-        while let Some(_block) = self.commit.recv().await {
-            // This is where we can further process committed block.
+        info!("Starting analyze loop");
+        loop {
+            if let Some(block) = self.commit.recv().await {
+                let mut nb_tx = 0;
+
+                for digest in &block.payload {
+                    let serialized = self.store.read(digest.to_vec())
+                        .await
+                        .expect("Failed to get batch from storage")
+                        .expect("Batch was not in storage");
+
+                    info!("Deserializing stored batch...");
+                    let batch: Batch = bincode::deserialize(&serialized)
+                        .expect("Failed to deserialize batch");
+
+                    let batch_size = batch.len();
+
+                    for tx_vec in batch {
+                        // TODO Send to carrier
+                        info!("{:?}", tx_vec)
+                    }
+
+                    // NOTE: This is used to compute performance.
+                    nb_tx += batch_size;
+
+                    #[cfg(feature = "benchmark")]
+                    {
+                        // NOTE: This is one extra hash that is only needed to print the following log entries.
+                        let digest = Digest(
+                            Sha512::digest(&serialized).as_slice()[..32]
+                                .try_into()
+                                .unwrap(),
+                        );
+                        // NOTE: This log entry is used to compute performance.
+                        info!("Batch {:?} contains {} currency tx", digest, nb_tx);
+                    }
+                }
+            }
         }
     }
 }
