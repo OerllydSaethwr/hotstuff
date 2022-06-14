@@ -114,7 +114,8 @@ def remote(ctx):
             'sync_retry_nodes': 3,
             'batch_size': 500_000,
             'max_batch_delay': 100
-        }
+        },
+        "decision": "127.0.0.1:6003"
     }
     try:
         Bench(ctx).run(bench_params, node_params, debug=False)

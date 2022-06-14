@@ -18,6 +18,9 @@ use tokio::sync::oneshot;
 use futures::sink::SinkExt as _;
 #[cfg(feature = "benchmark")]
 use std::convert::TryInto as _;
+use anyhow::Context;
+use tokio::net::TcpStream;
+use tokio_util::codec::{Framed, LengthDelimitedCodec};
 
 /// The default channel capacity for this module.
 pub const CHANNEL_CAPACITY: usize = 1_000;
@@ -25,6 +28,7 @@ pub const CHANNEL_CAPACITY: usize = 1_000;
 pub struct Node {
     pub commit: Receiver<Block>,
     pub store: Store,
+    pub transport: Framed<TcpStream, LengthDelimitedCodec>,
 }
 
 impl Node {
@@ -56,6 +60,13 @@ impl Node {
         // Run the signature service.
         let signature_service = SignatureService::new(secret_key);
 
+        // Connect to the mempool.
+        let stream = TcpStream::connect(parameters.decision)
+            .await
+            .context(format!("failed to connect to {}", parameters.decision))?;
+
+        let mut transport = Framed::new(stream, LengthDelimitedCodec::new());
+
         // Make a new mempool.
         Mempool::spawn(
             name,
@@ -79,7 +90,11 @@ impl Node {
         );
 
         info!("Node {} successfully booted", name);
-        Ok(Self { commit: rx_commit, store: store})
+        Ok(Self {
+            commit: rx_commit,
+            store: store,
+            transport: transport
+        })
     }
 
     pub fn print_key_file(filename: &str) -> Result<(), ConfigError> {
@@ -106,7 +121,10 @@ impl Node {
 
                     for tx_vec in batch {
                         // TODO Send to carrier
-                        info!("{:?}", tx_vec)
+                        let bytes = tx.split().freeze();
+                        if let Err(e) = transport.send(bytes).await {
+                            warn!("Failed to send reply to decision: {}", e);
+                        }
                     }
 
                     // NOTE: This is used to compute performance.
