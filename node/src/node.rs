@@ -11,6 +11,8 @@ use store::Store;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 
 use bytes::Bytes;
+use ed25519_dalek::Digest as _;
+use ed25519_dalek::Sha512;
 use std::error::Error;
 use std::collections::HashMap;
 use tokio::time::{sleep, Duration};
@@ -18,6 +20,8 @@ use tokio::sync::oneshot;
 use futures::sink::SinkExt as _;
 #[cfg(feature = "benchmark")]
 use std::convert::TryInto as _;
+use std::net::SocketAddr;
+use std::str::FromStr;
 use anyhow::Context;
 use tokio::net::TcpStream;
 use tokio_util::codec::{Framed, LengthDelimitedCodec};
@@ -60,10 +64,12 @@ impl Node {
         // Run the signature service.
         let signature_service = SignatureService::new(secret_key);
 
-        // Connect to the mempool.
+
+
+        // Connect to the decision.
         let stream = TcpStream::connect(parameters.decision)
-            .await
-            .context(format!("failed to connect to {}", parameters.decision))?;
+            .await.expect("aaaa");
+
 
         let mut transport = Framed::new(stream, LengthDelimitedCodec::new());
 
@@ -121,8 +127,7 @@ impl Node {
 
                     for tx_vec in batch {
                         // TODO Send to carrier
-                        let bytes = tx.split().freeze();
-                        if let Err(e) = transport.send(bytes).await {
+                        if let Err(e) = self.transport.send(Bytes::from(tx_vec)).await {
                             warn!("Failed to send reply to decision: {}", e);
                         }
                     }

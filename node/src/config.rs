@@ -9,7 +9,6 @@ use std::fs::{self, OpenOptions};
 use std::io::BufWriter;
 use std::io::Write as _;
 use thiserror::Error;
-use tokio::net::unix::SocketAddr;
 
 #[derive(Error, Debug)]
 pub enum ConfigError {
@@ -52,7 +51,7 @@ pub trait Export: Serialize + DeserializeOwned {
 pub struct Parameters {
     pub consensus: ConsensusParameters,
     pub mempool: MempoolParameters,
-    pub decision: SocketAddr,
+    pub decision: String,
 }
 
 impl Export for Parameters {}
