@@ -14,14 +14,14 @@ def local(ctx):
     bench_params = {
         'faults': 0,
         'nodes': 4,
-        'rate': 1_000,
-        'tx_size': 512,
-        'duration': 20,
+        'rate': 80,
+        'tx_size': 9,
+        'duration': 5,
     }
     node_params = {
         'consensus': {
-            'timeout_delay': 1_000,
-            'sync_retry_delay': 10_000,
+            'timeout_delay': 5_000,
+            'sync_retry_delay': 5_000,
         },
         'mempool': {
             'gc_depth': 50,
@@ -39,7 +39,7 @@ def local(ctx):
 
 
 @task
-def create(ctx, nodes=2):
+def create(ctx, nodes=4):
     ''' Create a testbed'''
     try:
         InstanceManager.make().create_instances(nodes)
@@ -97,11 +97,11 @@ def remote(ctx):
     ''' Run benchmarks on AWS '''
     bench_params = {
         'faults': 0,
-        'nodes': [10, 20],
-        'rate': [10_000, 30_000],
-        'tx_size': 512,
-        'duration': 300,
-        'runs': 5,
+        'nodes': [4],
+        'rate': [10_000],
+        'tx_size': 9,
+        'duration': 5,
+        'runs': 1,
     }
     node_params = {
         'consensus': {
