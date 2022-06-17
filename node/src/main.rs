@@ -67,10 +67,11 @@ async fn main() {
             let parameters_file = subm.value_of("parameters");
             let store_path = subm.value_of("store").unwrap();
             let decision= subm.value_of("decision").unwrap();
-            match Node::new(committee_file, key_file, store_path, parameters_file, decision).await {
+            let d2 = decision.to_owned();
+            match Node::new(committee_file, key_file, store_path, parameters_file).await {
                 Ok(mut node) => {
                     tokio::spawn(async move {
-                        node.analyze_block().await;
+                        node.analyze_block(d2).await;
                     })
                     .await
                     .expect("Failed to analyze committed blocks");
@@ -144,7 +145,7 @@ fn deploy_testbed(nodes: usize) -> Result<Vec<JoinHandle<()>>, Box<dyn std::erro
             let _ = fs::remove_dir_all(&store_path);
 
             Ok(tokio::spawn(async move {
-                match Node::new(committee_file, &key_file, &store_path, None, "").await {
+                match Node::new(committee_file, &key_file, &store_path, None).await {
                     Ok(mut node) => {
                         // Sink the commit channel.
                         while node.commit.recv().await.is_some() {}

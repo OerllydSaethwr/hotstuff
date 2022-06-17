@@ -86,6 +86,7 @@ class LocalBench:
                 clients.append("127.0.0.1:" + str(base_port + i * ports_per_carrier + 2))
 
             # Run the clients (they will wait for the nodes to be ready).
+            clients = committee.front
             rate_share = ceil(rate / nodes)
             timeout = self.node_parameters.timeout_delay
             client_logs = [PathMaker.client_log_file(i) for i in range(nodes)]
