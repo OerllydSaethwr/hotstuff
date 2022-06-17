@@ -44,7 +44,7 @@ class PathMaker:
         return f'.node-{i}.json'
 
     @staticmethod
-    def carrier_key_file(i):
+    def carrier_config_file(i):
         assert isinstance(i, int) and i >= 0
         return f'.carrier-{i}.json'
 
@@ -103,7 +103,7 @@ class PathMaker:
         return ".hosts.json"
 
     @staticmethod
-    def config_path():
+    def carrier_config_path():
         return "carrier-config"
 
 

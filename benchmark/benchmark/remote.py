@@ -8,7 +8,7 @@ from math import ceil
 from os.path import join
 import subprocess
 
-from benchmark.config import Committee, Key, NodeParameters, BenchParameters, ConfigError
+from benchmark.config import Committee, Key, NodeParameters, BenchParameters, ConfigError, Carrier
 from benchmark.utils import BenchError, Print, PathMaker, progress_bar
 from benchmark.commands import CommandMaker
 from benchmark.logs import LogParser, ParseError
@@ -134,8 +134,11 @@ class Bench:
             f'(cd {self.settings.carrier_repo_name} && git checkout -f {self.settings.carrier_branch})',
             f'(cd {self.settings.carrier_repo_name} && git pull -f)',
             'source $HOME/.cargo/env',
-            'source $HOME/.bashrc',
-            # 'export PATH=/home/ubuntu/.go/bin/:$PATH', # ?????????????????????????????? THE PREVIOUS COMMAND ALREADY DOES THIS ?????????
+            # 'source $HOME/.bashrc', # It seems that this does not work as intended
+            'export GOROOT=/home/ubuntu/.go',
+            'export PATH=$GOROOT/bin:$PATH',
+            'export GOPATH=/home/ubuntu/go',
+            'export PATH=$GOPATH/bin:$PATH',
             f'(cd {self.settings.hs_repo_name}/node && {CommandMaker.compile()})',
             CommandMaker.alias_binaries(
                 f'./{self.settings.hs_repo_name}/target/release/'
@@ -161,16 +164,17 @@ class Bench:
         subprocess.run(cmd, check=True, cwd=PathMaker.node_crate_path())
 
         # Recompile the latest carrier code.
-        cmd = CommandMaker.compile_carrier().split()
-        subprocess.run(cmd, shell=True, cwd=PathMaker.carrier_repo_path())
+        # This doesn't seem to work properly
+        # cmd = CommandMaker.compile_carrier().split()
+        # subprocess.run(cmd, check=True, cwd=PathMaker.carrier_path())
 
         # Create alias for the client and nodes binary.
         cmd = CommandMaker.alias_binaries(PathMaker.binary_path())
         subprocess.run([cmd], shell=True)
 
         # # Create alias for carrier
-        cmd = CommandMaker.alias_carrier(PathMaker.carrier_repo_path())
-        subprocess.run([cmd], shell=True)
+        # cmd = CommandMaker.alias_carrier(PathMaker.carrier_repo_path())
+        # subprocess.run([cmd], shell=True)
 
         # Generate configuration files.
         keys = []
@@ -189,6 +193,19 @@ class Bench:
 
         node_parameters.print(PathMaker.parameters_file())
 
+        # Generate carrier configuration files
+        hosts_file_data = {
+            "hosts": hosts,
+            "fronts": front_addr,
+        }
+
+        # Dump data to .hosts.json
+        Carrier.write_hosts_file(hosts_file_data)
+
+        # Generate all the config files
+        cmd = CommandMaker.generate_carrier_configs(".").split()
+        subprocess.run(cmd, check=True)
+
         # Cleanup all nodes.
         cmd = f'{CommandMaker.cleanup()} || true'
         g = Group(*hosts, user='ubuntu', connect_kwargs=self.connect)
@@ -201,6 +218,7 @@ class Bench:
             c.put(PathMaker.committee_file(), '.')
             c.put(PathMaker.key_file(i), '.')
             c.put(PathMaker.parameters_file(), '.')
+            c.put(PathMaker.carrier_config_file(i), '.')
 
         return committee
 
@@ -214,18 +232,26 @@ class Bench:
         # Filter all faulty nodes from the client addresses (or they will wait
         # for the faulty nodes to be online).
         committee = Committee.load(PathMaker.committee_file())
-        addresses = [f'{x}:{self.settings.front_port}' for x in hosts]
+        # fronts = [f'{x}:{self.settings.front_port}' for x in hosts]
+        clients = [f'{x}:{self.settings.client_port}' for x in hosts]  # Carrier client interfaces
         rate_share = ceil(rate / committee.size())  # Take faults into account.
         timeout = node_parameters.timeout_delay
         client_logs = [PathMaker.client_log_file(i) for i in range(len(hosts))]
-        for host, addr, log_file in zip(hosts, addresses, client_logs):
+        for host, client, log_file in zip(hosts, clients, client_logs):
             cmd = CommandMaker.run_client(
-                addr,
+                client,
                 bench_parameters.tx_size,
                 rate_share,
                 timeout,
-                nodes=addresses
+                nodes=clients
             )
+            self._background_run(host, cmd, log_file)
+
+        # Run the carriers
+        carrier_configs = [PathMaker.carrier_config_file(i) for i in range(len(hosts))]
+        carrier_logs = [PathMaker.carrier_log_file(i) for i in range(len(hosts))]
+        for host, config_file, log_file in zip(hosts, carrier_configs, carrier_logs):
+            cmd = CommandMaker.run_carrier_remote(config_file)
             self._background_run(host, cmd, log_file)
 
         # Run the nodes.

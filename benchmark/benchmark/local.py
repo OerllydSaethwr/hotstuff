@@ -99,7 +99,7 @@ class LocalBench:
             cmd = CommandMaker.make_config_dir().split()
             subprocess.run(cmd, check=True)
 
-            cmd = CommandMaker.generate_carrier_configs().split()
+            cmd = CommandMaker.generate_carrier_configs(PathMaker.carrier_config_path()).split()
             subprocess.run(cmd, check=True)
 
             # Do not boot faulty nodes.
@@ -108,7 +108,7 @@ class LocalBench:
             # Run carriers
             for i in range(nodes):
                 log_file = PathMaker.carrier_log_file(i)
-                cmd = CommandMaker.run_carrier(f'{PathMaker.config_path()}/.carrier-'+str(i)+'.json')
+                cmd = CommandMaker.run_carrier(f'{PathMaker.carrier_config_path()}/.carrier-' + str(i) + '.json')
                 self._background_run(cmd, log_file)
 
             # Run the clients (they will wait for the nodes to be ready).

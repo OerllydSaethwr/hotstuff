@@ -66,6 +66,12 @@ class CommandMaker:
         return f'{PathMaker.carrier_path()}/carrier {configFile}'
 
     @staticmethod
+    def run_carrier_remote(configFile):
+        assert isinstance(configFile, str)
+
+        return f'./carrier-exe {configFile}'
+
+    @staticmethod
     def kill():
         return 'tmux kill-server'
 
@@ -82,10 +88,10 @@ class CommandMaker:
         return f'rm -f carrier-exe ; ln -s {carrier} ./carrier-exe'
 
     @staticmethod
-    def generate_carrier_configs():
-        return f'{PathMaker.carrier_path()}/carrier generate config {PathMaker.hosts_file_path()} {PathMaker.config_path()}'
+    def generate_carrier_configs(configDir):
+        return f'{PathMaker.carrier_path()}/carrier generate config {PathMaker.hosts_file_path()} {configDir}'
 
     @staticmethod
     def make_config_dir():
-        return f'mkdir {PathMaker.config_path()}'
+        return f'mkdir {PathMaker.carrier_config_path()}'
 

@@ -6,9 +6,9 @@ class SettingsError(Exception):
 
 
 class Settings:
-    def __init__(self, testbed, key_name, key_path, consensus_port, mempool_port,
+    def __init__(self, testbed, key_name, key_path, consensus_port, mempool_port, front_port,
                  client_port, carrier_port, decision_port,
-                 front_port, hs_repo_name, hs_repo_url, hs_branch,
+                 hs_repo_name, hs_repo_url, hs_branch,
                  carrier_repo_name, carrier_repo_url, carrier_branch,
                  instance_type, aws_regions):
         if isinstance(aws_regions, list):
