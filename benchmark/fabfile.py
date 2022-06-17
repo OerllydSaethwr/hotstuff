@@ -14,7 +14,7 @@ def local(ctx):
     bench_params = {
         'faults': 0,
         'nodes': 4,
-        'rate': 80,
+        'rate': 8_000_000,
         'tx_size': 9,
         'duration': 5,
     }
@@ -39,7 +39,7 @@ def local(ctx):
 
 
 @task
-def create(ctx, nodes=50):
+def create(ctx, nodes=4):
     ''' Create a testbed'''
     try:
         InstanceManager.make().create_instances(nodes)
@@ -96,12 +96,12 @@ def install(ctx):
 def remote(ctx):
     ''' Run benchmarks on AWS '''
     bench_params = {
-        'faults': 16,
-        'nodes': [49],
+        'faults': 0,
+        'nodes': [4],
         'rate': [1_000_000, 10_000_000],
-        'tx_size': 512,
-        'duration': 20,
-        'runs': 5,
+        'tx_size': 9,
+        'duration': 5,
+        'runs': 1,
     }
     node_params = {
         'consensus': {
@@ -115,7 +115,6 @@ def remote(ctx):
             'batch_size': 500_000,
             'max_batch_delay': 100
         },
-        "decision": "127.0.0.1:6003"
     }
     try:
         Bench(ctx).run(bench_params, node_params, debug=False)

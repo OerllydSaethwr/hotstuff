@@ -1,18 +1,26 @@
 {
     "testbed": "hotstuff",
     "key": {
-        "name": "david-benchmark",
-        "path": "/home/ubuntu/.ssh/david-benchmark.pem"
+        "name": "david-laptop",
+        "path": "/home/dmv18/.ssh/david-laptop.pem"
     },
     "ports": {
         "consensus": 8000,
         "mempool": 7000,
-        "front": 6000
+        "front": 6000,
+        "client": 5000,
+        "carrier": 4000,
+        "decision": 3000
     },
-    "repo": {
+    "hs_repo": {
         "name": "hotstuff",
         "url": "https://github.com/asonnino/hotstuff.git",
         "branch": "main"
+    },
+    "carrier_repo": {
+        "name": "carrier",
+        "url": "https://github.com/OerllydSaethwr/carrier.git",
+        "branch": "master"
     },
     "instances": {
         "type": "c5.xlarge",

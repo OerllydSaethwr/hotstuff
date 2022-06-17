@@ -124,6 +124,45 @@ class InstanceManager:
                         'Description': 'Front end to accept clients transactions',
                     }],
                 },
+                {
+                    'IpProtocol': 'tcp',
+                    'FromPort': self.settings.client_port,
+                    'ToPort': self.settings.client_port,
+                    'IpRanges': [{
+                        'CidrIp': '0.0.0.0/0',
+                        'Description': 'Port to receive client tx',
+                    }],
+                    'Ipv6Ranges': [{
+                        'CidrIpv6': '::/0',
+                        'Description': 'Port to receive client tx',
+                    }],
+                },
+                {
+                    'IpProtocol': 'tcp',
+                    'FromPort': self.settings.carrier_port,
+                    'ToPort': self.settings.carrier_port,
+                    'IpRanges': [{
+                        'CidrIp': '0.0.0.0/0',
+                        'Description': 'Port to receive carrier msgs',
+                    }],
+                    'Ipv6Ranges': [{
+                        'CidrIpv6': '::/0',
+                        'Description': 'Port to receive carrier msgs',
+                    }],
+                },
+                {
+                    'IpProtocol': 'tcp',
+                    'FromPort': self.settings.decision_port,
+                    'ToPort': self.settings.decision_port,
+                    'IpRanges': [{
+                        'CidrIp': '0.0.0.0/0',
+                        'Description': 'Port to receive node decisions',
+                    }],
+                    'Ipv6Ranges': [{
+                        'CidrIpv6': '::/0',
+                        'Description': 'Port to receive node decisions',
+                    }],
+                },
             ]
         )
 

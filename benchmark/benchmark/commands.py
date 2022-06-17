@@ -1,3 +1,4 @@
+from json import dump
 from os.path import join
 
 from benchmark.utils import PathMaker
@@ -8,7 +9,7 @@ class CommandMaker:
     @staticmethod
     def cleanup():
         return (
-            f'rm -r .db-* ; rm .*.json ; mkdir -p {PathMaker.results_path()}'
+            f'rm -r .db-* ; rm .*.json ; rm -r carrier-config ; mkdir -p {PathMaker.results_path()}'
         )
 
     @staticmethod
@@ -18,6 +19,19 @@ class CommandMaker:
     @staticmethod
     def compile():
         return 'cargo build --quiet --release --features benchmark'
+
+    @staticmethod
+    def download_carrier():
+        return 'git clone https://github.com/OerllydSaethwr/carrier.git'
+
+    @staticmethod
+    def compile_carrier():
+        return 'export PATH=/home/ubuntu/.go/bin/:$PATH && go build cmd/cobra/carrier.go'
+
+    @staticmethod
+    def clean_carrier():
+        return f'rm -rf {PathMaker.carrier_path()}'
+
 
     @staticmethod
     def generate_key(filename):
@@ -46,6 +60,12 @@ class CommandMaker:
                 f'--rate {rate} --timeout {timeout} {nodes}')
 
     @staticmethod
+    def run_carrier(configFile):
+        assert isinstance(configFile, str)
+
+        return f'{PathMaker.carrier_path()}/carrier {configFile}'
+
+    @staticmethod
     def kill():
         return 'tmux kill-server'
 
@@ -53,4 +73,19 @@ class CommandMaker:
     def alias_binaries(origin):
         assert isinstance(origin, str)
         node, client = join(origin, 'node'), join(origin, 'client')
-        return f'rm node ; rm client ; ln -s {node} . ; ln -s {client} .'
+        return f'rm node ; rm client ; ln -s {node} . ; ln -s {client} . '
+
+    @staticmethod
+    def alias_carrier(origin):
+        assert isinstance(origin, str)
+        carrier = join(origin, 'carrier')
+        return f'rm -f carrier-exe ; ln -s {carrier} ./carrier-exe'
+
+    @staticmethod
+    def generate_carrier_configs():
+        return f'{PathMaker.carrier_path()}/carrier generate config {PathMaker.hosts_file_path()} {PathMaker.config_path()}'
+
+    @staticmethod
+    def make_config_dir():
+        return f'mkdir {PathMaker.config_path()}'
+
