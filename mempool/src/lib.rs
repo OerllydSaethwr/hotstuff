@@ -1,4 +1,4 @@
-mod batch_maker;
+pub mod batch_maker;
 mod config;
 mod helper;
 mod mempool;
@@ -11,4 +11,4 @@ mod synchronizer;
 mod common;
 
 pub use crate::config::{Committee, Parameters};
-pub use crate::mempool::{ConsensusMempoolMessage, Mempool};
+pub use crate::mempool::{ConsensusMempoolMessage, MempoolMessage, Mempool};

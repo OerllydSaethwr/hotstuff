@@ -1,6 +1,6 @@
 import subprocess
 from math import ceil
-from os.path import basename, splitext
+from os.path import basename, splitext, join
 from time import sleep
 
 from benchmark.commands import CommandMaker
@@ -75,12 +75,21 @@ class LocalBench:
             # Do not boot faulty nodes.
             nodes = nodes - self.faults
 
+            base_port = 6000
+            ports_per_carrier = 3
+
+            clients = []
+            decisions = []
+
+            for i in range(nodes):
+                decisions.append("127.0.0.1:" + str(base_port + i * ports_per_carrier + 1))
+                clients.append("127.0.0.1:" + str(base_port + i * ports_per_carrier + 2))
+
             # Run the clients (they will wait for the nodes to be ready).
-            addresses = committee.front
             rate_share = ceil(rate / nodes)
             timeout = self.node_parameters.timeout_delay
             client_logs = [PathMaker.client_log_file(i) for i in range(nodes)]
-            for addr, log_file in zip(addresses, client_logs):
+            for addr, log_file in zip(clients, client_logs):
                 cmd = CommandMaker.run_client(
                     addr,
                     self.tx_size,
@@ -92,12 +101,13 @@ class LocalBench:
             # Run the nodes.
             dbs = [PathMaker.db_path(i) for i in range(nodes)]
             node_logs = [PathMaker.node_log_file(i) for i in range(nodes)]
-            for key_file, db, log_file in zip(key_files, dbs, node_logs):
+            for key_file, db, log_file, decision in zip(key_files, dbs, node_logs, decisions):
                 cmd = CommandMaker.run_node(
                     key_file,
                     PathMaker.committee_file(),
                     db,
                     PathMaker.parameters_file(),
+                    decision,
                     debug=debug
                 )
                 self._background_run(cmd, log_file)

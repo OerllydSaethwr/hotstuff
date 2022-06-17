@@ -25,14 +25,14 @@ class CommandMaker:
         return f'./node keys --filename {filename}'
 
     @staticmethod
-    def run_node(keys, committee, store, parameters, debug=False):
+    def run_node(keys, committee, store, parameters, decision, debug=False):
         assert isinstance(keys, str)
         assert isinstance(committee, str)
         assert isinstance(parameters, str)
         assert isinstance(debug, bool)
         v = '-vvv' if debug else '-vv'
         return (f'./node {v} run --keys {keys} --committee {committee} '
-                f'--store {store} --parameters {parameters}')
+                f'--store {store} --parameters {parameters} --decision {decision}')
 
     @staticmethod
     def run_client(address, size, rate, timeout, nodes=[]):
