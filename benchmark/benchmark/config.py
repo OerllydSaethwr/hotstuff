@@ -1,5 +1,7 @@
 from json import dump, load
 
+from benchmark.utils import PathMaker
+
 
 class ConfigError(Exception):
     pass
@@ -16,6 +18,34 @@ class Key:
         with open(filename, 'r') as f:
             data = load(f)
         return cls(data['name'], data['secret'])
+
+
+class CarrierKey:
+    def __init__(self, name, sk, pk):
+        self.name = name
+        self.sk = sk
+        self.pk = pk
+
+    @classmethod
+    def from_file(cls, filename):
+        assert isinstance(filename, str)
+        with open(filename, 'r') as f:
+            data = load(f)
+        return cls(data['name'], data['sk'], data['pk'])
+
+
+class Carrier:
+
+    @staticmethod
+    def write_hosts_file(hosts_file_contents):
+        with open(PathMaker.hosts_file_path(), 'w') as f:
+            dump(hosts_file_contents, f, indent=4, sort_keys=True)
+
+
+def print_carriers(filename, carriers):
+    assert isinstance(filename, str)
+    with open(filename, 'w') as f:
+        dump(carriers, f, indent=4, sort_keys=True)
 
 
 class Committee:
@@ -45,9 +75,9 @@ class Committee:
         node = {}
         for n, f, m in zip(self.names, self.front, self.mempool):
             node[n] = {
-                'name': n, 
+                'name': n,
                 'stake': 1,
-                'transactions_address': f, 
+                'transactions_address': f,
                 'mempool_address': m
             }
         return {'authorities': node, 'epoch': 1}
@@ -86,7 +116,7 @@ class LocalCommittee(Committee):
         size = len(names)
         consensus = [f'127.0.0.1:{port + i}' for i in range(size)]
         front = [f'127.0.0.1:{port + i + size}' for i in range(size)]
-        mempool = [f'127.0.0.1:{port + i + 2*size}' for i in range(size)]
+        mempool = [f'127.0.0.1:{port + i + 2 * size}' for i in range(size)]
         super().__init__(names, consensus, front, mempool)
 
 

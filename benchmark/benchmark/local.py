@@ -4,7 +4,8 @@ from os.path import basename, splitext, join
 from time import sleep
 
 from benchmark.commands import CommandMaker
-from benchmark.config import Key, LocalCommittee, NodeParameters, BenchParameters, ConfigError
+from benchmark.config import Key, LocalCommittee, NodeParameters, BenchParameters, ConfigError, CarrierKey, \
+    print_carriers, Carrier
 from benchmark.logs import LogParser, ParseError
 from benchmark.utils import Print, BenchError, PathMaker
 
@@ -54,6 +55,16 @@ class LocalBench:
             cmd = CommandMaker.compile().split()
             subprocess.run(cmd, check=True, cwd=PathMaker.node_crate_path())
 
+            # Clean, download and compile carrier
+            cmd = CommandMaker.clean_carrier().split()
+            subprocess.run(cmd, check=True)
+            # cmd = CommandMaker.download_carrier().split()
+            cmd = f"cp -r /home/dmv18/epfl/project/carrier /home/dmv18/epfl/project/asonnino/hotstuff/".split() # TODO
+            subprocess.run(cmd, check=True, cwd='..')
+            cmd = CommandMaker.compile_carrier().split()
+            subprocess.run(cmd, check=True, cwd=PathMaker.carrier_path())
+
+            # TODO add alias for carrier also (stage 2)
             # Create alias for the client and nodes binary.
             cmd = CommandMaker.alias_binaries(PathMaker.binary_path())
             subprocess.run([cmd], shell=True)
@@ -72,9 +83,6 @@ class LocalBench:
 
             self.node_parameters.print(PathMaker.parameters_file())
 
-            # Do not boot faulty nodes.
-            nodes = nodes - self.faults
-
             base_port = 6000
             ports_per_carrier = 3
 
@@ -82,11 +90,28 @@ class LocalBench:
             decisions = []
 
             for i in range(nodes):
-                decisions.append("127.0.0.1:" + str(base_port + i * ports_per_carrier + 1))
-                clients.append("127.0.0.1:" + str(base_port + i * ports_per_carrier + 2))
+                decisions.append("127.0.0.1:"+str(base_port + i*ports_per_carrier + 1))
+                clients.append("127.0.0.1:"+str(base_port + i*ports_per_carrier + 2))
+
+            hosts_file_data = {"hosts": ["127.0.0.1"] * nodes, "fronts": committee.front}
+            Carrier.write_hosts_file(hosts_file_data)
+            
+            cmd = CommandMaker.make_config_dir().split()
+            subprocess.run(cmd, check=True)
+
+            cmd = CommandMaker.generate_carrier_configs().split()
+            subprocess.run(cmd, check=True)
+
+            # Do not boot faulty nodes.
+            nodes = nodes - self.faults
+
+            # Run carriers
+            for i in range(nodes):
+                log_file = PathMaker.carrier_log_file(i)
+                cmd = CommandMaker.run_carrier(f'{PathMaker.config_path()}/.carrier-'+str(i)+'.json')
+                self._background_run(cmd, log_file)
 
             # Run the clients (they will wait for the nodes to be ready).
-            clients = committee.front
             rate_share = ceil(rate / nodes)
             timeout = self.node_parameters.timeout_delay
             client_logs = [PathMaker.client_log_file(i) for i in range(nodes)]

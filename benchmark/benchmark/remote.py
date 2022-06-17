@@ -122,6 +122,7 @@ class Bench:
         self._check_stderr(output)
 
     def _update(self, hosts):
+        # TODO 1 add carrier
         Print.info(
             f'Updating {len(hosts)} nodes (branch "{self.settings.hs_branch}")...'
         )
@@ -139,11 +140,16 @@ class Bench:
             CommandMaker.alias_binaries(
                 f'./{self.settings.hs_repo_name}/target/release/'
             ),
+            f'(cd {self.settings.carrier_repo_name} && {CommandMaker.compile_carrier()})',
+            CommandMaker.alias_carrier(
+                f'./{self.settings.carrier_repo_name}'
+            ),
         ]
         g = Group(*hosts, user='ubuntu', connect_kwargs=self.connect)
         g.run(' && '.join(cmd), hide=True)
 
     def _config(self, hosts, node_parameters):
+        # TODO 2. Generate and upload carrier configs
         Print.info('Generating configuration files...')
 
         # Cleanup all local configuration files.
@@ -154,8 +160,16 @@ class Bench:
         cmd = CommandMaker.compile().split()
         subprocess.run(cmd, check=True, cwd=PathMaker.node_crate_path())
 
+        # Recompile the latest carrier code.
+        cmd = CommandMaker.compile_carrier().split()
+        subprocess.run(cmd, shell=True, cwd=PathMaker.carrier_repo_path())
+
         # Create alias for the client and nodes binary.
         cmd = CommandMaker.alias_binaries(PathMaker.binary_path())
+        subprocess.run([cmd], shell=True)
+
+        # # Create alias for carrier
+        cmd = CommandMaker.alias_carrier(PathMaker.carrier_repo_path())
         subprocess.run([cmd], shell=True)
 
         # Generate configuration files.
@@ -299,6 +313,7 @@ class Bench:
                 hosts = hosts[:n-faults]
 
                 # Run the benchmark.
+                # TODO 3 add carrier
                 for i in range(bench_parameters.runs):
                     Print.heading(f'Run {i+1}/{bench_parameters.runs}')
                     try:
