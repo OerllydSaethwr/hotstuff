@@ -163,18 +163,18 @@ class Bench:
         cmd = CommandMaker.compile().split()
         subprocess.run(cmd, check=True, cwd=PathMaker.node_crate_path())
 
-        # Recompile the latest carrier code.
-        # This doesn't seem to work properly
-        # cmd = CommandMaker.compile_carrier().split()
-        # subprocess.run(cmd, check=True, cwd=PathMaker.carrier_path())
+        # Clean, download and compile carrier
+        cmd = CommandMaker.clean_carrier().split()
+        subprocess.run(cmd, check=True)
+        # cmd = CommandMaker.download_carrier().split()
+        cmd = f"cp -r /home/dmv18/epfl/project/carrier /home/dmv18/epfl/project/asonnino/hotstuff/".split()  # TODO
+        subprocess.run(cmd, check=True, cwd='..')
+        cmd = CommandMaker.compile_carrier().split()
+        subprocess.run(cmd, check=True, cwd=PathMaker.carrier_path())
 
         # Create alias for the client and nodes binary.
         cmd = CommandMaker.alias_binaries(PathMaker.binary_path())
         subprocess.run([cmd], shell=True)
-
-        # # Create alias for carrier
-        # cmd = CommandMaker.alias_carrier(PathMaker.carrier_repo_path())
-        # subprocess.run([cmd], shell=True)
 
         # Generate configuration files.
         keys = []
