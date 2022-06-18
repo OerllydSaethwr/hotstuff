@@ -163,14 +163,15 @@ class Bench:
         cmd = CommandMaker.compile().split()
         subprocess.run(cmd, check=True, cwd=PathMaker.node_crate_path())
 
-        # Clean, download and compile carrier
-        cmd = CommandMaker.clean_carrier().split()
-        subprocess.run(cmd, check=True)
-        # cmd = CommandMaker.download_carrier().split()
-        cmd = f"cp -r /home/dmv18/epfl/project/carrier /home/dmv18/epfl/project/asonnino/hotstuff/".split()  # TODO
-        subprocess.run(cmd, check=True, cwd='..')
-        cmd = CommandMaker.compile_carrier().split()
-        subprocess.run(cmd, check=True, cwd=PathMaker.carrier_path())
+        if self.settings.enable_carrier:
+            # Clean, download and compile carrier if enabled
+            cmd = CommandMaker.clean_carrier().split()
+            subprocess.run(cmd, check=True)
+            # cmd = CommandMaker.download_carrier().split()
+            cmd = f"cp -r /home/dmv18/epfl/project/carrier /home/dmv18/epfl/project/asonnino/hotstuff/".split()  # TODO
+            subprocess.run(cmd, check=True, cwd='..')
+            cmd = CommandMaker.compile_carrier().split()
+            subprocess.run(cmd, check=True, cwd=PathMaker.carrier_path())
 
         # Create alias for the client and nodes binary.
         cmd = CommandMaker.alias_binaries(PathMaker.binary_path())
@@ -194,17 +195,18 @@ class Bench:
         node_parameters.print(PathMaker.parameters_file())
 
         # Generate carrier configuration files
-        hosts_file_data = {
-            "hosts": hosts,
-            "fronts": front_addr,
-        }
+        if self.settings.enable_carrier:
+            hosts_file_data = {
+                "hosts": hosts,
+                "fronts": front_addr,
+            }
 
-        # Dump data to .hosts.json
-        Carrier.write_hosts_file(hosts_file_data)
+            # Dump data to .hosts.json
+            Carrier.write_hosts_file(hosts_file_data)
 
-        # Generate all the config files
-        cmd = CommandMaker.generate_carrier_configs(".").split()
-        subprocess.run(cmd, check=True)
+            # Generate all the config files
+            cmd = CommandMaker.generate_carrier_configs(".").split()
+            subprocess.run(cmd, check=True)
 
         # Cleanup all nodes.
         cmd = f'{CommandMaker.cleanup()} || true'
@@ -218,7 +220,9 @@ class Bench:
             c.put(PathMaker.committee_file(), '.')
             c.put(PathMaker.key_file(i), '.')
             c.put(PathMaker.parameters_file(), '.')
-            c.put(PathMaker.carrier_config_file(i), '.')
+
+            if self.settings.enable_carrier:
+                c.put(PathMaker.carrier_config_file(i), '.')
 
         return committee
 
@@ -232,8 +236,7 @@ class Bench:
         # Filter all faulty nodes from the client addresses (or they will wait
         # for the faulty nodes to be online).
         committee = Committee.load(PathMaker.committee_file())
-        # fronts = [f'{x}:{self.settings.front_port}' for x in hosts]
-        clients = [f'{x}:{self.settings.client_port}' for x in hosts]  # Carrier client interfaces
+        clients = [f'{x}:{self.settings.client_port if self.settings.enable_carrier else self.settings.front_port}' for x in hosts]  # Carrier client interfaces
         rate_share = ceil(rate / committee.size())  # Take faults into account.
         timeout = node_parameters.timeout_delay
         client_logs = [PathMaker.client_log_file(i) for i in range(len(hosts))]
@@ -248,11 +251,12 @@ class Bench:
             self._background_run(host, cmd, log_file)
 
         # Run the carriers
-        carrier_configs = [PathMaker.carrier_config_file(i) for i in range(len(hosts))]
-        carrier_logs = [PathMaker.carrier_log_file(i) for i in range(len(hosts))]
-        for host, config_file, log_file in zip(hosts, carrier_configs, carrier_logs):
-            cmd = CommandMaker.run_carrier_remote(config_file)
-            self._background_run(host, cmd, log_file)
+        if self.settings.enable_carrier:
+            carrier_configs = [PathMaker.carrier_config_file(i) for i in range(len(hosts))]
+            carrier_logs = [PathMaker.carrier_log_file(i) for i in range(len(hosts))]
+            for host, config_file, log_file in zip(hosts, carrier_configs, carrier_logs):
+                cmd = CommandMaker.run_carrier_remote(config_file)
+                self._background_run(host, cmd, log_file)
 
         # Run the nodes.
         key_files = [PathMaker.key_file(i) for i in range(len(hosts))]
@@ -313,6 +317,10 @@ class Bench:
             Print.warn('There are not enough instances available')
             return
 
+        if self.settings.enable_carrier:
+            Print.info('Carrier enabled')
+        else:
+            Print.info('Carrier disabled')
         # Update nodes.
         try:
             self._update(selected_hosts)
@@ -339,7 +347,6 @@ class Bench:
                 hosts = hosts[:n-faults]
 
                 # Run the benchmark.
-                # TODO 3 add carrier
                 for i in range(bench_parameters.runs):
                     Print.heading(f'Run {i+1}/{bench_parameters.runs}')
                     try:
