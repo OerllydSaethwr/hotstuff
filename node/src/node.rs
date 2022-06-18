@@ -105,8 +105,6 @@ impl Node {
             info!("Starting analyze loop");
             loop {
                 if let Some(block) = self.commit.recv().await {
-                    let mut nb_tx = 0;
-
                     for digest in &block.payload {
                         let serialized = self.store.read(digest.to_vec())
                             .await
@@ -128,32 +126,17 @@ impl Node {
                                         warn!("Failed to send reply to decision: {}", e);
                                     }
                                 }
-
-                                // NOTE: This is used to compute performance.
-                                nb_tx += batch_size;
                             },
                             MempoolMessage::BatchRequest(_, _) => {
                                 warn!("A batch request was stored!");
                             }
-                        }
-
-                        #[cfg(feature = "benchmark")]
-                        {
-                            // NOTE: This is one extra hash that is only needed to print the following log entries.
-                            let digest = Digest(
-                                Sha512::digest(&serialized).as_slice()[..32]
-                                    .try_into()
-                                    .unwrap(),
-                            );
-                            // NOTE: This log entry is used to compute performance.
-                            info!("Batch {:?} contains {} currency tx", digest, nb_tx);
                         }
                     }
                 }
             }
         }
 
-        // If connection fails do nothing but keep the ndoe running
+        // If connection fails do nothing but keep the node running
         while let Some(_block) = self.commit.recv().await {
             // This is where we can further process committed block.
         }
