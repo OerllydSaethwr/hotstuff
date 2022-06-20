@@ -300,7 +300,7 @@ class Bench:
 
         # Parse logs and return the parser.
         Print.info('Parsing logs and computing performance...')
-        return LogParser.process(PathMaker.logs_path(), faults=faults)
+        return LogParser.process(PathMaker.logs_path(), self.settings, faults=faults)
 
     def run(self, bench_parameters_dict, node_parameters_dict, debug=False):
         assert isinstance(debug, bool)
@@ -354,7 +354,8 @@ class Bench:
                             hosts, r, bench_parameters, node_parameters, debug
                         )
                         self._logs(hosts, faults).print(PathMaker.result_file(
-                            faults, n, r, bench_parameters.tx_size
+                            faults, n, r, bench_parameters.tx_size,
+                            self.settings.enable_carrier
                         ))
                     except (subprocess.SubprocessError, GroupException, ParseError) as e:
                         self.kill(hosts=hosts)

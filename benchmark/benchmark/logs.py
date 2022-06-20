@@ -13,12 +13,13 @@ class ParseError(Exception):
 
 
 class LogParser:
-    def __init__(self, clients, nodes, faults):
+    def __init__(self, clients, nodes, faults, settings):
         inputs = [clients, nodes]
         assert all(isinstance(x, list) for x in inputs)
         assert all(isinstance(x, str) for y in inputs for x in y)
         assert all(x for x in inputs)
 
+        self.settings = settings
         self.faults = faults
         if isinstance(faults, int):
             self.committee_size = len(nodes) + int(faults)
@@ -152,6 +153,15 @@ class LogParser:
         bytes = sum(self.sizes.values())
         bps = bytes / duration
         tps = bps / self.size[0]
+        if self.settings and self.settings.enable_carrier:
+            f = (self.settings.committee_size - 1) / 3
+            mth = self.settings.mempool_threshold
+
+            bytes_per_superblock = (137 * (f + 1) + 72) * (2 * f + 1) + 4
+            superblock_ps = bps / bytes_per_superblock
+            tps = superblock_ps * (2 * f + 1) * mth
+            bps = tps * self.settings.transaction_size
+
         return tps, bps, duration
 
     def _consensus_latency(self):
@@ -231,7 +241,7 @@ class LogParser:
             f.write(self.result())
 
     @classmethod
-    def process(cls, directory, faults):
+    def process(cls, directory, settings, faults):
         assert isinstance(directory, str)
 
         clients = []
@@ -243,4 +253,4 @@ class LogParser:
             with open(filename, 'r') as f:
                 nodes += [f.read()]
 
-        return cls(clients, nodes, faults)
+        return cls(clients, nodes, faults, settings)

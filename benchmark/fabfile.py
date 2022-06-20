@@ -98,9 +98,9 @@ def remote(ctx):
     bench_params = {
         'faults': 0,
         'nodes': [4],
-        'rate': [10_000],
+        'rate': [20_000_000],
         'tx_size': 9,
-        'duration': 5,
+        'duration': 20,
         'runs': 1,
     }
     node_params = {
@@ -150,6 +150,6 @@ def kill(ctx):
 def logs(ctx):
     ''' Print a summary of the logs '''
     try:
-        print(LogParser.process('./logs', faults='?').result())
+        print(LogParser.process('./logs', None, faults='?').result())
     except ParseError as e:
         Print.error(BenchError('Failed to parse logs', e))

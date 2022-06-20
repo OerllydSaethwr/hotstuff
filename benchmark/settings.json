@@ -28,5 +28,8 @@
             "eu-central-1"
         ]
     },
-    "enable_carrier": "true"
+    "enable_carrier": "true",
+    "mempool_threshold": 10,
+    "transaction_size": 9,
+    "committee_size": 4
 }
