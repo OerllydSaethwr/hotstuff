@@ -5,8 +5,9 @@ from os.path import basename, splitext, join
 from time import sleep
 
 from benchmark.commands import CommandMaker
-from benchmark.config import Key, LocalCommittee, NodeParameters, BenchParameters, ConfigError, CarrierKey, \
+from benchmark.config import Key, LocalCommittee, NodeParameters, BenchParameters, CarrierParameters, ConfigError, CarrierKey, \
     print_carriers, Carrier
+
 from benchmark.logs import LogParser, ParseError
 from benchmark.utils import Print, BenchError, PathMaker
 
@@ -14,10 +15,12 @@ from benchmark.utils import Print, BenchError, PathMaker
 class LocalBench:
     BASE_PORT = 9000
 
-    def __init__(self, bench_parameters_dict, node_parameters_dict):
+    def __init__(self, bench_parameters_dict, node_parameters_dict,
+                 carrier_params_dict):
         try:
             self.bench_parameters = BenchParameters(bench_parameters_dict)
             self.node_parameters = NodeParameters(node_parameters_dict)
+            self.carrier_parameters = CarrierParameters(carrier_params_dict)
         except ConfigError as e:
             raise BenchError('Invalid nodes or bench parameters', e)
 
@@ -41,7 +44,7 @@ class LocalBench:
         Print.heading('Starting local benchmark')
         go_env = os.environ.copy()
         go_env["PATH"] = "/usr/local/go/bin:" + go_env["PATH"]
-        enable_carrier = False
+        enable_carrier = self.carrier_parameters.enable
 
     # Kill any previous testbed.
         self._kill_nodes()
@@ -92,7 +95,7 @@ class LocalBench:
             self.node_parameters.print(PathMaker.parameters_file())
 
             base_port = 6000
-            ports_per_carrier = 3
+            ports_per_carrier = 3 # Leaving this in as this is not likely to change
 
             clients = [] if enable_carrier else committee.front
             decisions = [] if enable_carrier else ["127.0.0.1:"+str(base_port + i*ports_per_carrier + 1) for i in range(nodes)]
@@ -102,7 +105,35 @@ class LocalBench:
                     decisions.append("127.0.0.1:"+str(base_port + i*ports_per_carrier + 1))
                     clients.append("127.0.0.1:"+str(base_port + i*ports_per_carrier + 2))
 
-                hosts_file_data = {"hosts": ["127.0.0.1"] * nodes, "fronts": committee.front}
+                hosts_file_data = {
+                    "hosts": ["127.0.0.1"] * nodes,
+                    "fronts": committee.front,
+                    "settings": {
+                        "tsx-size": self.bench_parameters.tx_size,
+                        "rate": self.bench_parameters.rate[0],
+                        "nodes": len(self.bench_parameters.nodes),
+
+                        "decision-port": self.settings.decision_port,
+                        "carrier-port": self.settings.carrier_port,
+                        "client-port": self.settings.client_port,
+
+                        "mempool-threshold": self.carrier_parameters.init_threshold,
+                        "forward-mode": 1 if self.carrier_parameters.forward_mode else 0,
+                        "log-level": "info",
+
+                        "carrier-conn-retry-delay":
+                            self.carrier_parameters.carrier_conn_retry_delay,
+                        "carrier-conn-max-retry":
+                            self.carrier_parameters.carrier_conn_max_retry,
+                        "node-conn-retry-delay":
+                            self.carrier_parameters.node_conn_retry_delay,
+                        "node-conn-max-retry":
+                            self.carrier_parameters.node_conn_max_retry,
+
+                        "local-base-port": self.carrier_parameters.local_base_port,
+                        "local-front-port": self.carrier_parameters.local_front_port,
+                    }
+                }
                 Carrier.write_hosts_file(hosts_file_data)
 
                 cmd = CommandMaker.make_config_dir().split()
@@ -159,7 +190,7 @@ class LocalBench:
 
             # Parse logs and return the parser.
             Print.info('Parsing logs...')
-            return LogParser.process('./logs', None, faults=self.faults)
+            return LogParser.process('./logs', self.faults, enable_carrier, self.carrier_parameters.init_threshold, self.bench_parameters.tx_size)
 
         except (subprocess.SubprocessError, ParseError) as e:
             self._kill_nodes()

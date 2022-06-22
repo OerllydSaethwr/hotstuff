@@ -12,9 +12,11 @@ import subprocess
 from multiprocessing import Pool
 import tqdm
 
-from benchmark.config import Committee, Key, NodeParameters, BenchParameters, ConfigError, Carrier
+from benchmark.config import Committee, Key, NodeParameters, BenchParameters,\
+ CarrierParameters, ConfigError, Carrier
 from benchmark.utils import BenchError, Print, PathMaker, progress_bar
 from benchmark.commands import CommandMaker
+
 from benchmark.logs import LogParser, ParseError
 from benchmark.instance import InstanceManager
 
@@ -165,7 +167,8 @@ class Bench:
         g = Group(*hosts, user='ubuntu', connect_kwargs=self.connect)
         g.run(' && '.join(cmd), hide=True)
 
-    def _config(self, hosts, node_parameters):
+    def _config(self, hosts, node_parameters, bench_parameters,
+                carrier_parameters):
         # TODO 2. Generate and upload carrier configs
         Print.info('Generating configuration files...')
 
@@ -177,7 +180,7 @@ class Bench:
         cmd = CommandMaker.compile().split()
         subprocess.run(cmd, check=True, cwd=PathMaker.node_crate_path())
 
-        if self.settings.enable_carrier:
+        if carrier_parameters.enable:
             # Clean, download and compile carrier if enabled
             cmd = CommandMaker.clean_carrier().split()
             subprocess.run(cmd, check=True)
@@ -212,12 +215,36 @@ class Bench:
         node_parameters.print(PathMaker.parameters_file())
 
         # Generate carrier configuration files
-        if self.settings.enable_carrier:
+        if carrier_parameters.enable:
             hosts_file_data = {
                 "hosts": hosts,
                 "fronts": front_addr,
-            }
+                "settings": {
+                    "tsx-size": bench_parameters.tx_size,
+                    "rate": bench_parameters.rate[0],
+                    "nodes": len(bench_parameters.nodes),
 
+                    "decision-port": self.settings.decision_port,
+                    "carrier-port": self.settings.carrier_port,
+                    "client-port": self.settings.client_port,
+
+                    "mempool-threshold": carrier_parameters.init_threshold,
+                    "forward-mode": 1 if carrier_parameters.forward_mode else 0,
+                    "log-level": "info",
+
+                    "carrier-conn-retry-delay":
+                        carrier_parameters.carrier_conn_retry_delay,
+                    "carrier-conn-max-retry":
+                        carrier_parameters.carrier_conn_max_retry,
+                    "node-conn-retry-delay":
+                        carrier_parameters.node_conn_retry_delay,
+                    "node-conn-max-retry":
+                        carrier_parameters.node_conn_max_retry,
+
+                    "local-base-port": carrier_parameters.local_base_port,
+                    "local-front-port": carrier_parameters.local_front_port,
+                }
+            }
             # Dump data to .hosts.json
             Carrier.write_hosts_file(hosts_file_data)
 
@@ -230,14 +257,15 @@ class Bench:
         g = Group(*hosts, user='ubuntu', connect_kwargs=self.connect)
         g.run(cmd, hide=True)
 
-        self.send_config_paralell(hosts)
+        self.send_config_paralell(hosts, carrier_parameters.enable)
         # self.send_config_sequential(hosts)
         return committee
 
-    def send_config_paralell(self, hosts):
+    def send_config_paralell(self, hosts, enable_carrier):
         tmp = []
         for i in range(0, len(hosts)):
-            tmp += [(i, hosts[i], self.manager.settings.key_path, self.settings.enable_carrier)]
+            tmp += [(i, hosts[i], self.manager.settings.key_path,
+                     enable_carrier)]
         try:
             with Pool() as p:
                 for _ in tqdm.tqdm(
@@ -261,7 +289,8 @@ class Bench:
         if enable_carrier:
             c.put(PathMaker.carrier_config_file(i), '.')
 
-    def _run_single(self, hosts, rate, bench_parameters, node_parameters, debug=False):
+    def _run_single(self, hosts, rate, bench_parameters, node_parameters,
+                    carrier_parameters, debug=False):
         Print.info('Booting testbed...')
 
         # Kill any potentially unfinished run and delete logs.
@@ -271,7 +300,7 @@ class Bench:
         # Filter all faulty nodes from the client addresses (or they will wait
         # for the faulty nodes to be online).
         committee = Committee.load(PathMaker.committee_file())
-        clients = [f'{x}:{self.settings.client_port if self.settings.enable_carrier else self.settings.front_port}' for x in hosts]  # Carrier client interfaces
+        clients = [f'{x}:{self.settings.client_port if carrier_parameters.enable else self.settings.front_port}' for x in hosts]  # Carrier client interfaces
         rate_share = ceil(rate / committee.size())  # Take faults into account.
         timeout = node_parameters.timeout_delay
         client_logs = [PathMaker.client_log_file(i) for i in range(len(hosts))]
@@ -292,7 +321,7 @@ class Bench:
         except (ValueError, IndexError) as e:
             raise BenchError(f'Failed to boot clients: {e}')
 
-        if self.settings.enable_carrier:
+        if carrier_parameters.enable:
             carrier_configs = [PathMaker.carrier_config_file(i) for i in range(len(hosts))]
             carrier_logs = [PathMaker.carrier_log_file(i) for i in range(len(hosts))]
             params = zip(hosts, carrier_configs, carrier_logs)
@@ -386,32 +415,22 @@ class Bench:
         )
         Bench._run_in_background(host, cmd, log_file, pkey)
 
-    def _logs(self, hosts, faults):
+    def _logs(self, hosts, faults, enable_carrier, carrier_init_threshold, tx_size):
         # Delete local logs (if any).
         cmd = CommandMaker.clean_logs()
         subprocess.run([cmd], shell=True, stderr=subprocess.DEVNULL)
 
         # Download log files.
-        self._get_logs_parallel(hosts)
+        self._get_logs_parallel(hosts, enable_carrier)
 
-        # progress = progress_bar(hosts, prefix='Downloading logs:')
-        # for i, host in enumerate(progress):
-        #     c = Connection(host, user='ubuntu', connect_kwargs=self.connect)
-        #     c.get(PathMaker.node_log_file(i), local=PathMaker.node_log_file(i))
-        #     c.get(
-        #         PathMaker.client_log_file(i), local=PathMaker.client_log_file(i)
-        #     )
-        #
-        # # Parse logs and return the parser.
-        # Print.info('Parsing logs and computing performance...')
-        return LogParser.process(PathMaker.logs_path(), self.settings, faults=faults)
+        return LogParser.process(PathMaker.logs_path(), faults, enable_carrier, carrier_init_threshold, tx_size)
 
-    def _get_logs_parallel(self, hosts):
+    def _get_logs_parallel(self, hosts, enable_carrier):
 
         tmp = []
         for i in range(0, len(hosts)):
             tmp += [(i, hosts[i], self.manager.settings.key_path,
-                     self.settings.enable_carrier)]
+                     enable_carrier)]
         try:
             with Pool() as p:
                 for _ in tqdm.tqdm(
@@ -435,12 +454,14 @@ class Bench:
 
         return 0
 
-    def run(self, bench_parameters_dict, node_parameters_dict, debug=False):
+    def run(self, bench_parameters_dict, node_parameters_dict,
+            carrier_parameters_dict, debug=False):
         assert isinstance(debug, bool)
         Print.heading('Starting remote benchmark')
         try:
             bench_parameters = BenchParameters(bench_parameters_dict)
             node_parameters = NodeParameters(node_parameters_dict)
+            carrier_parameters = CarrierParameters(carrier_parameters_dict)
         except ConfigError as e:
             raise BenchError('Invalid nodes or bench parameters', e)
 
@@ -450,7 +471,7 @@ class Bench:
             Print.warn('There are not enough instances available')
             return
 
-        if self.settings.enable_carrier:
+        if carrier_parameters.enable:
             Print.info('Carrier enabled')
         else:
             Print.info('Carrier disabled')
@@ -472,7 +493,8 @@ class Bench:
 
                 # Upload all configuration files.
                 try:
-                    self._config(hosts, node_parameters)
+                    self._config(hosts, node_parameters, bench_parameters,
+                                 carrier_parameters)
                 except (subprocess.SubprocessError, GroupException) as e:
                     e = FabricError(e) if isinstance(e, GroupException) else e
                     Print.error(BenchError('Failed to configure nodes', e))
@@ -487,11 +509,11 @@ class Bench:
                     Print.heading(f'Run {i+1}/{bench_parameters.runs}')
                     try:
                         self._run_single(
-                            hosts, r, bench_parameters, node_parameters, debug
+                            hosts, r, bench_parameters, node_parameters, carrier_parameters, debug
                         )
-                        self._logs(hosts, faults).print(PathMaker.result_file(
+                        self._logs(hosts, faults, carrier_parameters.enable, carrier_parameters.init_threshold, bench_parameters.tx_size).print(PathMaker.result_file(
                             faults, n, r, bench_parameters.tx_size,
-                            self.settings.enable_carrier
+                            carrier_parameters.enable
                         ))
                     except (subprocess.SubprocessError, GroupException, ParseError) as e:
                         self.kill(hosts=hosts)

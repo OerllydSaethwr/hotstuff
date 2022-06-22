@@ -10,8 +10,7 @@ class Settings:
                  client_port, carrier_port, decision_port,
                  hs_repo_name, hs_repo_url, hs_branch,
                  carrier_repo_name, carrier_repo_url, carrier_branch,
-                 instance_type, aws_regions,
-                 enable_carrier, mempool_threshold, transaction_size, committee_size):
+                 instance_type, aws_regions):
         if isinstance(aws_regions, list):
             regions = aws_regions
         else:
@@ -53,11 +52,6 @@ class Settings:
         self.instance_type = instance_type
         self.aws_regions = regions
 
-        self.enable_carrier = True if enable_carrier == "true" else False
-        self.mempool_threshold = mempool_threshold
-        self.transaction_size = transaction_size
-        self.committee_size = committee_size
-
     @classmethod
     def load(cls, filename):
         try:
@@ -82,10 +76,6 @@ class Settings:
                 data['carrier_repo']['branch'],
                 data['instances']['type'],
                 data['instances']['regions'],
-                data['enable_carrier'],
-                data['mempool_threshold'],
-                data['transaction_size'],
-                data['committee_size'],
             )
         except (OSError, JSONDecodeError) as e:
             raise SettingsError(str(e))

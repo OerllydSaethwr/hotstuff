@@ -13,13 +13,15 @@ class ParseError(Exception):
 
 
 class LogParser:
-    def __init__(self, clients, nodes, faults, settings):
+    def __init__(self, clients, nodes, faults, enable_carrier=False, carrier_init_threshold=0, tx_size=0):
         inputs = [clients, nodes]
         assert all(isinstance(x, list) for x in inputs)
         assert all(isinstance(x, str) for y in inputs for x in y)
         assert all(x for x in inputs)
 
-        self.settings = settings
+        self.enable_carrier = enable_carrier
+        self.carrier_init_threshold = carrier_init_threshold
+        self.tx_size = tx_size
         self.faults = faults
         if isinstance(faults, int):
             self.committee_size = len(nodes) + int(faults)
@@ -153,14 +155,14 @@ class LogParser:
         bytes = sum(self.sizes.values())
         bps = bytes / duration
         tps = bps / self.size[0]
-        if self.settings and self.settings.enable_carrier:
-            f = (self.settings.committee_size - 1) / 3
-            mth = self.settings.mempool_threshold
+        if self.enable_carrier:
+            f = (int(self.committee_size) - 1) / 3
+            mth = self.carrier_init_threshold
 
             bytes_per_superblock = (137 * (f + 1) + 72) * (2 * f + 1) + 4
             superblock_ps = bps / bytes_per_superblock
             tps = superblock_ps * (2 * f + 1) * mth
-            bps = tps * self.settings.transaction_size
+            bps = tps * self.tx_size
 
         return tps, bps, duration
 
@@ -180,7 +182,7 @@ class LogParser:
 
     def _end_to_end_latency(self):
         latency = []
-        if not(self.settings and self.settings.enable_carrier):
+        if not self.enable_carrier:
             for sent, received in zip(self.sent_samples, self.received_samples):
                 for tx_id, batch_id in received.items():
                     if batch_id in self.commits:
@@ -241,7 +243,7 @@ class LogParser:
             f.write(self.result())
 
     @classmethod
-    def process(cls, directory, settings, faults):
+    def process(cls, directory, faults, enable_carrier=False, carrier_init_threshold=0, tx_size=0):
         assert isinstance(directory, str)
 
         clients = []
@@ -253,4 +255,4 @@ class LogParser:
             with open(filename, 'r') as f:
                 nodes += [f.read()]
 
-        return cls(clients, nodes, faults, settings)
+        return cls(clients, nodes, faults, enable_carrier, carrier_init_threshold, tx_size)

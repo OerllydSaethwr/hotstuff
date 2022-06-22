@@ -30,9 +30,5 @@
             "af-south-1",
             "ap-northeast-2"
         ]
-    },
-    "enable_carrier": "true",
-    "mempool_threshold": 10,
-    "transaction_size": 128,
-    "committee_size": 4
+    }
 }

@@ -175,6 +175,30 @@ class BenchParameters:
             raise ConfigError('There should be more nodes than faults')
 
 
+class CarrierParameters:
+    def __init__(self, json):
+        try:
+            self.enable = json['enable-carrier'] == "true"
+
+            self.init_threshold = int(json['init-threshold'])
+            self.forward_mode = json['forward-mode'] == "true"
+            self.log_level = json['log-level']
+
+            self.carrier_conn_retry_delay = int(json['carrier-conn-retry-delay'])
+            self.carrier_conn_max_retry = int(json['carrier-conn-max-retry'])
+            self.node_conn_retry_delay = int(json['node-conn-retry-delay'])
+            self.node_conn_max_retry = int(json['node-conn-max-retry'])
+
+            self.local_base_port = int(json['local-base-port'])
+            self.local_front_port = int(json['local-front-port'])
+
+        except KeyError as e:
+            raise ConfigError(f'Malformed carrier parameters: missing key {e}')
+
+        except ValueError:
+            raise ConfigError('Invalid parameters type')
+
+
 class PlotParameters:
     def __init__(self, json):
         try:
