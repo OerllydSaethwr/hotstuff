@@ -25,11 +25,14 @@
     "instances": {
         "type": "c5.xlarge",
         "regions": [
-            "eu-central-1"
+            "eu-central-1",
+            "us-west-1",
+            "af-south-1",
+            "ap-northeast-2"
         ]
     },
     "enable_carrier": "true",
     "mempool_threshold": 10,
-    "transaction_size": 9,
+    "transaction_size": 128,
     "committee_size": 4
 }

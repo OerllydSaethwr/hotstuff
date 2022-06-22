@@ -1,3 +1,4 @@
+import os
 import subprocess
 from math import ceil
 from os.path import basename, splitext, join
@@ -38,8 +39,11 @@ class LocalBench:
     def run(self, debug=False):
         assert isinstance(debug, bool)
         Print.heading('Starting local benchmark')
+        go_env = os.environ.copy()
+        go_env["PATH"] = "/usr/local/go/bin:" + go_env["PATH"]
+        enable_carrier = False
 
-        # Kill any previous testbed.
+    # Kill any previous testbed.
         self._kill_nodes()
 
         try:
@@ -56,13 +60,17 @@ class LocalBench:
             subprocess.run(cmd, check=True, cwd=PathMaker.node_crate_path())
 
             # Clean, download and compile carrier
-            cmd = CommandMaker.clean_carrier().split()
-            subprocess.run(cmd, check=True)
-            # cmd = CommandMaker.download_carrier().split()
-            cmd = f"cp -r /home/dmv18/epfl/project/carrier /home/dmv18/epfl/project/asonnino/hotstuff/".split() # TODO
-            subprocess.run(cmd, check=True, cwd='..')
-            cmd = CommandMaker.compile_carrier().split()
-            subprocess.run(cmd, check=True, cwd=PathMaker.carrier_path())
+            if enable_carrier:
+                cmd = CommandMaker.clean_carrier().split()
+                subprocess.run(cmd, check=True)
+                # cmd = CommandMaker.download_carrier().split()
+                cmd = f"cp -r /home/dmv18/epfl/project/carrier /home/dmv18/epfl/project/asonnino/hotstuff/".split() # TODO
+                subprocess.run(cmd, check=True, cwd='..')
+
+
+                cmd = CommandMaker.compile_carrier().split()
+                subprocess.run(cmd, check=True, cwd=PathMaker.carrier_path(),
+                               env=go_env)
 
             # TODO add alias for carrier also (stage 2)
             # Create alias for the client and nodes binary.
@@ -86,30 +94,32 @@ class LocalBench:
             base_port = 6000
             ports_per_carrier = 3
 
-            clients = []
-            decisions = []
+            clients = [] if enable_carrier else committee.front
+            decisions = [] if enable_carrier else ["127.0.0.1:"+str(base_port + i*ports_per_carrier + 1) for i in range(nodes)]
 
-            for i in range(nodes):
-                decisions.append("127.0.0.1:"+str(base_port + i*ports_per_carrier + 1))
-                clients.append("127.0.0.1:"+str(base_port + i*ports_per_carrier + 2))
+            if enable_carrier:
+                for i in range(nodes):
+                    decisions.append("127.0.0.1:"+str(base_port + i*ports_per_carrier + 1))
+                    clients.append("127.0.0.1:"+str(base_port + i*ports_per_carrier + 2))
 
-            hosts_file_data = {"hosts": ["127.0.0.1"] * nodes, "fronts": committee.front}
-            Carrier.write_hosts_file(hosts_file_data)
-            
-            cmd = CommandMaker.make_config_dir().split()
-            subprocess.run(cmd, check=True)
+                hosts_file_data = {"hosts": ["127.0.0.1"] * nodes, "fronts": committee.front}
+                Carrier.write_hosts_file(hosts_file_data)
 
-            cmd = CommandMaker.generate_carrier_configs(PathMaker.carrier_config_path()).split()
-            subprocess.run(cmd, check=True)
+                cmd = CommandMaker.make_config_dir().split()
+                subprocess.run(cmd, check=True)
+
+                cmd = CommandMaker.generate_carrier_configs(PathMaker.carrier_config_path()).split()
+                subprocess.run(cmd, check=True)
 
             # Do not boot faulty nodes.
             nodes = nodes - self.faults
 
             # Run carriers
-            for i in range(nodes):
-                log_file = PathMaker.carrier_log_file(i)
-                cmd = CommandMaker.run_carrier(f'{PathMaker.carrier_config_path()}/.carrier-' + str(i) + '.json')
-                self._background_run(cmd, log_file)
+            if enable_carrier:
+                for i in range(nodes):
+                    log_file = PathMaker.carrier_log_file(i)
+                    cmd = CommandMaker.run_carrier(f'{PathMaker.carrier_config_path()}/.carrier-' + str(i) + '.json')
+                    self._background_run(cmd, log_file)
 
             # Run the clients (they will wait for the nodes to be ready).
             rate_share = ceil(rate / nodes)

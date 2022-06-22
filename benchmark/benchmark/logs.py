@@ -106,7 +106,7 @@ class LogParser:
         tmp = findall(r'Batch ([^ ]+) contains sample tx (\d+)', log)
         samples = {int(s): d for d, s in tmp}
 
-        tmp = findall(r'.* WARN .* Timeout', log)
+        tmp = findall(r'\[.* WARN .* Timeout', log)
         timeouts = len(tmp)
 
         configs = {
@@ -180,14 +180,14 @@ class LogParser:
 
     def _end_to_end_latency(self):
         latency = []
-        for sent, received in zip(self.sent_samples, self.received_samples):
-            for tx_id, batch_id in received.items():
-                if batch_id in self.commits:
-                    continue
-                    # assert tx_id in sent  # We receive txs that we sent.
-                    # start = sent[tx_id]
-                    # end = self.commits[batch_id]
-                    # latency += [end-start]
+        if not(self.settings and self.settings.enable_carrier):
+            for sent, received in zip(self.sent_samples, self.received_samples):
+                for tx_id, batch_id in received.items():
+                    if batch_id in self.commits:
+                        assert tx_id in sent  # We receive txs that we sent.
+                        start = sent[tx_id]
+                        end = self.commits[batch_id]
+                        latency += [end-start]
         return mean(latency) if latency else 0
 
     def result(self):
