@@ -14,7 +14,7 @@ def local(ctx):
     bench_params = {
         'faults': 0,
         'nodes': 4,
-        'rate': 100000,
+        'rate': 1_000_000,
         'tx_size': 128,
         'duration': 10,
     }
@@ -32,9 +32,9 @@ def local(ctx):
         }
     }
     carrier_params = {
-        "enable-carrier": "true",
+        "enable-carrier": "false",
 
-        "init-threshold": 100,
+        "init-threshold": 10000,
         "forward-mode": "false",
         "log-level": "info",
 
@@ -47,15 +47,14 @@ def local(ctx):
         "local-front-port": 9000,
     }
     try:
-        ret = LocalBench(bench_params, node_params, carrier_params).run(
-            debug=False).result()
+        ret = LocalBench(bench_params, node_params, carrier_params).run(debug=False).result()
         print(ret)
     except BenchError as e:
         Print.error(e)
 
 
 @task
-def create(ctx, nodes=10):
+def create(ctx, nodes=13):
     ''' Create a testbed'''
     try:
         InstanceManager.make().create_instances(nodes)
@@ -70,6 +69,16 @@ def destroy(ctx):
         InstanceManager.make().terminate_instances()
     except BenchError as e:
         Print.error(e)
+
+@task
+def cancel(ctx):
+    ''' Cancel all spot requests '''
+    try:
+        InstanceManager.make().cancel_spot_request()
+    except BenchError as e:
+        Print.error(e)
+
+
 
 
 @task
@@ -113,10 +122,10 @@ def remote(ctx):
     ''' Run benchmarks on AWS '''
     bench_params = {
         'faults': 0,
-        'nodes': [4],
-        'rate': [50_000],
+        'nodes': [4, 10, 25, 49],
+        'rate': [50_000, 100_000, 200_000, 500_000, 1_000_000],
         'tx_size': 128,
-        'duration': 20,
+        'duration': 60,
         'runs': 1,
     }
     node_params = {
@@ -135,7 +144,7 @@ def remote(ctx):
     carrier_params = {
         "enable-carrier": "true",
 
-        "init-threshold": 10,
+        "init-threshold": 100000,
         "forward-mode": "false",
         "log-level": "info",
 
@@ -160,10 +169,14 @@ def plot(ctx):
         'faults': [0],
         'nodes': [4, 10, 25, 49],
         'tx_size': 128,
-        'max_latency': [1000, 5000, 20_000]
+        'max_latency': [1000, 10000, 20000, 50000, 100000],
+        'init_threshold': [10000, 100000]
+    }
+    plot_settings = {
+        'enable_carrier': True
     }
     try:
-        Ploter.plot(plot_params)
+        Ploter.plot(plot_params, plot_settings)
     except PlotError as e:
         Print.error(BenchError('Failed to plot performance', e))
 
@@ -181,8 +194,8 @@ def kill(ctx):
 def logs(ctx):
     ''' Print a summary of the logs '''
     try:
-        enable_carrier = True
-        carrier_init_threshold = 10
+        enable_carrier = False
+        carrier_init_threshold = 10000
         tx_size = 128
         faults = 0
         print(LogParser.process('./logs', faults, enable_carrier, carrier_init_threshold, tx_size).result())

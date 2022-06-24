@@ -113,9 +113,9 @@ class LocalBench:
                         "rate": self.bench_parameters.rate[0],
                         "nodes": len(self.bench_parameters.nodes),
 
-                        "decision-port": self.settings.decision_port,
-                        "carrier-port": self.settings.carrier_port,
-                        "client-port": self.settings.client_port,
+                        "decision-port": 0, # Unused in the local case
+                        "carrier-port": 0,
+                        "client-port": 0,
 
                         "mempool-threshold": self.carrier_parameters.init_threshold,
                         "forward-mode": 1 if self.carrier_parameters.forward_mode else 0,

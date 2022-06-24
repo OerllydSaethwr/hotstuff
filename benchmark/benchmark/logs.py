@@ -13,7 +13,7 @@ class ParseError(Exception):
 
 
 class LogParser:
-    def __init__(self, clients, nodes, faults, enable_carrier=False, carrier_init_threshold=0, tx_size=0):
+    def __init__(self, clients, nodes, carriers, faults, enable_carrier=False, carrier_init_threshold=0, tx_size=0):
         inputs = [clients, nodes]
         assert all(isinstance(x, list) for x in inputs)
         assert all(isinstance(x, str) for y in inputs for x in y)
@@ -53,6 +53,19 @@ class LogParser:
         }
         self.timeouts = max(timeouts)
 
+        # Parse carrier logs
+        if self.enable_carrier:
+            try:
+                with Pool() as p:
+                    results = p.map(self._parse_carriers, carriers)
+            except (ValueError, IndexError) as e:
+                raise ParseError(f'Failed to parse carrier logs: {e}')
+
+            self.start_carrier, proposals, commits = zip(*results)
+            self.carrier_proposals = self._merge_results([x.items() for x in proposals])
+            self.carrier_commits = self._merge_results([x.items() for x in commits])
+
+
         # Check whether clients missed their target rate.
         if self.misses != 0:
             Print.warn(
@@ -89,6 +102,23 @@ class LogParser:
         samples = {int(s): self._to_posix(t) for t, s in tmp}
 
         return size, rate, start, misses, samples
+
+    def _parse_carriers(self, log):
+        if search(r'Error', log) is not None:
+            raise ParseError('Carrier(s) panicked')
+
+        tmp = search(r'\{"level":"info","time":"(.*Z).*start listening to client', log).group(1)
+        start = self._to_posix(tmp)
+
+        tmp = findall(r'\{"level":"info","time":"(.*Z).*proposed (.{64})', log)
+        tmp = [(d, self._to_posix(t)) for t, d in tmp]
+        proposals = self._merge_results([tmp])
+
+        tmp = findall(r'\{"level":"info","time":"(.*Z).*committed (.{64})', log)
+        tmp = [(d, self._to_posix(t)) for t, d in tmp]
+        commits = self._merge_results([tmp])
+
+        return start, proposals, commits
 
     def _parse_nodes(self, log):
         if search(r'panic', log) is not None:
@@ -156,18 +186,19 @@ class LogParser:
         bps = bytes / duration
         tps = bps / self.size[0]
         if self.enable_carrier:
-            f = (int(self.committee_size) - 1) / 3
-            mth = self.carrier_init_threshold
-
-            bytes_per_superblock = (137 * (f + 1) + 72) * (2 * f + 1) + 4
-            superblock_ps = bps / bytes_per_superblock
-            tps = superblock_ps * (2 * f + 1) * mth
+            start, end = min(self.carrier_proposals.values()), max(self.carrier_commits.values() if self.carrier_commits else self.carrier_proposals.values())
+            duration = end - start
+            committed_tsx = len(self.carrier_commits.values()) * self.carrier_init_threshold
+            tps = committed_tsx / duration
             bps = tps * self.tx_size
 
         return tps, bps, duration
 
     def _consensus_latency(self):
         latency = [c - self.proposals[d] for d, c in self.commits.items()]
+        if self.enable_carrier:
+            latency = [c - self.carrier_proposals[d] for d, c in self.carrier_commits.items()]
+
         return mean(latency) if latency else 0
 
     def _end_to_end_throughput(self):
@@ -178,10 +209,19 @@ class LogParser:
         bytes = sum(self.sizes.values())
         bps = bytes / duration
         tps = bps / self.size[0]
+        if self.enable_carrier:
+            start, end = min(self.start), max(self.carrier_commits.values() if self.carrier_commits else self.carrier_proposals.values())
+            duration = end - start
+            committed_tsx = len(self.carrier_commits.values()) * self.carrier_init_threshold
+            tps = committed_tsx / duration
+            bps = tps * self.tx_size
+
         return tps, bps, duration
 
     def _end_to_end_latency(self):
         latency = []
+
+        # Does not work for carrier
         if not self.enable_carrier:
             for sent, received in zip(self.sent_samples, self.received_samples):
                 for tx_id, batch_id in received.items():
@@ -206,6 +246,8 @@ class LogParser:
         mempool_batch_size = self.configs[0]['mempool']['batch_size']
         mempool_max_batch_delay = self.configs[0]['mempool']['max_batch_delay']
 
+        carrier_line = f' Carrier Init Threshold: {self.carrier_init_threshold}' if self.enable_carrier else ''
+
         return (
             '\n'
             '-----------------------------------------\n'
@@ -217,6 +259,7 @@ class LogParser:
             f' Input rate: {sum(self.rate):,} tx/s\n'
             f' Transaction size: {self.size[0]:,} B\n'
             f' Execution time: {round(duration):,} s\n'
+            f'{carrier_line}' 
             '\n'
             f' Consensus timeout delay: {consensus_timeout_delay:,} ms\n'
             f' Consensus sync retry delay: {consensus_sync_retry_delay:,} ms\n'
@@ -255,4 +298,9 @@ class LogParser:
             with open(filename, 'r') as f:
                 nodes += [f.read()]
 
-        return cls(clients, nodes, faults, enable_carrier, carrier_init_threshold, tx_size)
+        carriers = []
+        for filename in sorted(glob(join(directory, 'carrier-*.log'))):
+            with open(filename, 'r') as f:
+                carriers += [f.read()]
+
+        return cls(clients, nodes, carriers, faults, enable_carrier, carrier_init_threshold, tx_size)

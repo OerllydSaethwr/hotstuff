@@ -77,11 +77,11 @@ class PathMaker:
         return 'results'
 
     @staticmethod
-    def result_file(faults, nodes, rate, tx_size, enable_carrier):
+    def result_file(faults, nodes, rate, tx_size, enable_carrier, init_threshold):
         if enable_carrier:
             return join(
                 PathMaker.results_path(),
-                f'c-bench-{faults}-{nodes}-{rate}-{tx_size}.txt'
+                f'c-bench-{faults}-{nodes}-{rate}-{tx_size}-{init_threshold}.txt'
             )
         else:
             return join(

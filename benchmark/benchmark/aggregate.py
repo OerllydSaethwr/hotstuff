@@ -57,7 +57,7 @@ class Result:
     @classmethod
     def from_str(cls, raw):
         tps = int(search(r'.* End-to-end TPS: (\d+)', raw).group(1))
-        latency = int(search(r'.* End-to-end latency: (\d+)', raw).group(1))
+        latency = int(search(r'.* Consensus latency: (\d+)', raw).group(1))
         return cls(tps, latency)
 
     @classmethod

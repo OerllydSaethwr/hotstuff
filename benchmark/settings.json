@@ -30,5 +30,8 @@
             "af-south-1",
             "ap-northeast-2"
         ]
+    },
+    "validity": {
+        "duration": 5
     }
 }

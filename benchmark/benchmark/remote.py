@@ -57,7 +57,6 @@ class Bench:
                 raise ExecutionError(output.stderr)
 
     def install(self):
-        Print.info('Installing rust, go and cloning the repo...')
         cmd = [
             'sudo apt-get update',
             'sudo apt-get -y upgrade',
@@ -74,23 +73,32 @@ class Bench:
 
             # This is missing from the Rocksdb installer (needed for Rocksdb).
             'sudo apt-get install -y clang',
-            
+
+            # Clone the HotStuff repo.
+            f'(git clone {self.settings.hs_repo_url} || (cd {self.settings.hs_repo_name} ; git pull))',
+        ]
+
+        go_cmd = [
             # Install go
             # Annoyingly the command will error if go is already installed, hence || :
             # This way we won't know if there is an actual error during the installation
             'wget -q -O - https://git.io/vQhTU | bash || :',
             # 'sudo apt-get install golang -y',
             'source $HOME/.bashrc',
-
-            # Clone the HotStuff repo.
-            f'(git clone {self.settings.hs_repo_url} || (cd {self.settings.hs_repo_name} ; git pull))',
             # Clone the Carrier repo.
             f'(git clone {self.settings.carrier_repo_url} || (cd {self.settings.carrier_repo_name} ; git pull))'
         ]
-        hosts = self.manager.hosts(flat=True)
+        hosts = self.manager.public_hosts(flat=True)
         try:
             g = Group(*hosts, user='ubuntu', connect_kwargs=self.connect)
+
+            Print.info('Installing Rust and cloning HotStuff...')
             g.run(' && '.join(cmd), hide=True)
+
+            Print.info('Installing Go and cloning Carrier...')
+            g.run(' && '.join(go_cmd), hide=True)
+
+            g.close()
             Print.heading(f'Initialized testbed of {len(hosts)} nodes')
         except (GroupException, ExecutionError) as e:
             e = FabricError(e) if isinstance(e, GroupException) else e
@@ -99,12 +107,13 @@ class Bench:
     def kill(self, hosts=[], delete_logs=False):
         assert isinstance(hosts, list)
         assert isinstance(delete_logs, bool)
-        hosts = hosts if hosts else self.manager.hosts(flat=True)
+        hosts = hosts if hosts else self.manager.public_hosts(flat=True)
         delete_logs = CommandMaker.clean_logs() if delete_logs else 'true'
         cmd = [delete_logs, f'({CommandMaker.kill()} || true)']
         try:
             g = Group(*hosts, user='ubuntu', connect_kwargs=self.connect)
             g.run(' && '.join(cmd), hide=True)
+            g.close()
         except GroupException as e:
             raise BenchError('Failed to kill nodes', FabricError(e))
 
@@ -112,7 +121,7 @@ class Bench:
         nodes = max(bench_parameters.nodes)
 
         # Ensure there are enough hosts.
-        hosts = self.manager.hosts()
+        hosts = self.manager.public_hosts()
         if sum(len(x) for x in hosts.values()) < nodes:
             return []
 
@@ -136,6 +145,8 @@ class Bench:
         c = Connection(host, user='ubuntu', connect_kwargs={"pkey": pkey})
         output = c.run(cmd, hide=True)
         Bench._check_stderr(output)
+        c.close()
+
 
     def _update(self, hosts):
         # TODO 1 add carrier
@@ -166,10 +177,10 @@ class Bench:
         ]
         g = Group(*hosts, user='ubuntu', connect_kwargs=self.connect)
         g.run(' && '.join(cmd), hide=True)
+        g.close()
 
     def _config(self, hosts, node_parameters, bench_parameters,
                 carrier_parameters):
-        # TODO 2. Generate and upload carrier configs
         Print.info('Generating configuration files...')
 
         # Cleanup all local configuration files.
@@ -228,7 +239,7 @@ class Bench:
                     "carrier-port": self.settings.carrier_port,
                     "client-port": self.settings.client_port,
 
-                    "mempool-threshold": carrier_parameters.init_threshold,
+                    "init-threshold": carrier_parameters.init_threshold,
                     "forward-mode": 1 if carrier_parameters.forward_mode else 0,
                     "log-level": "info",
 
@@ -259,6 +270,7 @@ class Bench:
 
         self.send_config_paralell(hosts, carrier_parameters.enable)
         # self.send_config_sequential(hosts)
+        g.close()
         return committee
 
     def send_config_paralell(self, hosts, enable_carrier):
@@ -513,7 +525,8 @@ class Bench:
                         )
                         self._logs(hosts, faults, carrier_parameters.enable, carrier_parameters.init_threshold, bench_parameters.tx_size).print(PathMaker.result_file(
                             faults, n, r, bench_parameters.tx_size,
-                            carrier_parameters.enable
+                            carrier_parameters.enable,
+                            carrier_parameters.init_threshold
                         ))
                     except (subprocess.SubprocessError, GroupException, ParseError) as e:
                         self.kill(hosts=hosts)

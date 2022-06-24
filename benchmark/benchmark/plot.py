@@ -64,7 +64,7 @@ class Ploter:
                 raise PlotError('Unequal number of x, y, and y_err values')
 
             plt.errorbar(
-                x_values, y_values, yerr=y_err, label=z_axis(result),
+                x_values, y_values, yerr=0, label=z_axis(result),
                 linestyle='dotted', marker=next(markers), capsize=3
             )
 
@@ -132,9 +132,9 @@ class Ploter:
         ploter._plot(x_label, y_label, ploter._tps, z_axis, 'tps')
 
     @classmethod
-    def plot(cls, params_dict):
+    def plot(cls, params_dict, settings_dict):
         try:
-            params = PlotParameters(params_dict)
+            params = PlotParameters(params_dict, settings_dict)
         except PlotError as e:
             raise PlotError('Invalid nodes or bench parameters', e)
 

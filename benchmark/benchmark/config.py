@@ -200,7 +200,7 @@ class CarrierParameters:
 
 
 class PlotParameters:
-    def __init__(self, json):
+    def __init__(self, json, json_settings):
         try:
             nodes = json['nodes']
             nodes = nodes if isinstance(nodes, list) else [nodes]
@@ -219,6 +219,18 @@ class PlotParameters:
             if not max_lat:
                 raise ConfigError('Missing max latency')
             self.max_latency = [int(x) for x in max_lat]
+
+            enable_carrier = json_settings['enable_carrier']
+
+            plot_ranges = json_settings['plot_ranges']
+            self.plot_ranges = plot_ranges
+
+            if enable_carrier:
+                init_thresholds = json['init_threshold']
+                init_thresholds = init_thresholds if isinstance(init_thresholds, list) else [init_thresholds]
+                self.init_thresholds = [int(x) for x in init_thresholds]
+                self.enable_carrier = True
+
 
         except KeyError as e:
             raise ConfigError(f'Malformed bench parameters: missing key {e}')
